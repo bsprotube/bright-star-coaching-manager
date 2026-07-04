@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { getItem, deleteItem } from '../utils/storage';
 
-// CHANGE THIS TO YOUR LOCAL BACKEND SERVER IP ADDRESS FOR TESTING ON PHYSICAL DEVICES
-// E.g., 'http://192.168.1.100:5000/api'
-export const BASE_URL = 'http://localhost:5000/api'; 
+// ===============================
+// Live Render Backend API
+// ===============================
+export const BASE_URL = 'https://bright-star-coaching-manager.onrender.com/api';
 export const API_URL = BASE_URL;
 
 const api = axios.create({
@@ -16,32 +17,32 @@ api.interceptors.request.use(
   async (config) => {
     try {
       const token = await getItem('user_token');
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
       console.error('Error fetching token from storage', error);
     }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to catch token expirations (401)
+// Response interceptor to catch expired tokens
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response && error.response.status === 401) {
-      // Token is invalid/expired. Clean store.
       try {
         await deleteItem('user_token');
         await deleteItem('user_data');
       } catch (e) {
-        console.error('Error clearing secure store', e);
+        console.error('Error clearing storage', e);
       }
     }
+
     return Promise.reject(error);
   }
 );
