@@ -1,0 +1,36 @@
+{
+  "name": "bright-star-coaching-manager-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "ts:check": "tsc"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~3.2.3",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-navigation/bottom-tabs": "^6.5.20",
+    "@react-navigation/drawer": "^6.6.15",
+    "@react-navigation/native": "^6.1.17",
+    "@react-navigation/stack": "^6.3.29",
+    "axios": "^1.7.2",
+    "expo": "~51.0.9",
+    "expo-file-system": "~17.0.1",
+    "expo-font": "~12.0.5",
+    "expo-image-picker": "~15.1.0",
+    "expo-secure-store": "~13.0.2",
+    "expo-sharing": "~12.0.1",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-gesture-handler": "~2.16.1",
+    "react-native-reanimated": "~3.10.1",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-screens": "~3.31.1",
+    "react-native-web": "~0.19.10"
+  },
+  "private": true
+}
