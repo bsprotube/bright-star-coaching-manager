@@ -11,6 +11,7 @@ import {
   FlatList,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -26,6 +27,12 @@ const ROLL_COL_WIDTH = 56;
 const SUMMARY_COL_WIDTH = 60;
 const FEE_COL_WIDTH = 100;
 const AVATAR_SIZE = 32;
+
+// On web, use a plain View with native CSS overflow for the horizontal
+// scroller instead of RN's ScrollView — ScrollView's JS-based wheel handling
+// was fighting with the page-level vertical scroll and causing a jittery/
+// shaking feel. Native mobile still needs the real ScrollView for touch scroll.
+const HScrollWrapper = Platform.OS === 'web' ? View : ScrollView;
 
 const AttendanceRegisterScreen = ({ navigation, route }) => {
   const [batches, setBatches] = useState([]);
@@ -215,10 +222,18 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
         </View>
       ) : (
         <>
-          {/* Register Table: horizontal scroll for dates, vertical scroll for students */}
-          <ScrollView horizontal style={styles.hScroll} contentContainerStyle={styles.hScrollContent}>
-            <ScrollView style={styles.vScroll} contentContainerStyle={styles.vScrollContent}>
-              <View>
+          {/* Register Table: horizontal scroll for dates; vertical scroll is
+              handled by the page-level root scroll (see App.js), not nested here.
+              On web we use a plain native-overflow View instead of RN's ScrollView
+              component here, because ScrollView's JS wheel-handling was fighting
+              with the page's vertical scroll and causing a "shaking"/jitter feel. */}
+          <View style={styles.tableWrapper}>
+            <HScrollWrapper
+              {...(Platform.OS === 'web'
+                ? { style: [styles.hScroll, styles.hScrollWeb] }
+                : { horizontal: true, style: styles.hScroll, contentContainerStyle: styles.hScrollContent })}
+            >
+              <View style={Platform.OS === 'web' ? styles.hScrollContent : undefined}>
                 {/* Header row */}
                 <View style={styles.headerRow}>
                   <View style={[styles.headCell, { width: ROLL_COL_WIDTH }]}>
@@ -313,8 +328,8 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
                   </View>
                 ))}
               </View>
-            </ScrollView>
-          </ScrollView>
+            </HScrollWrapper>
+          </View>
 
           {/* Batch Summary Cards */}
           <View style={styles.summaryBar}>
@@ -377,11 +392,10 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    height: '100%',
     backgroundColor: COLORS.background,
   },
   loaderContainer: {
-    flex: 1,
+    minHeight: 300,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -475,17 +489,19 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 10,
   },
+  tableWrapper: {
+    paddingBottom: 20,
+  },
   hScroll: {
-    flex: 1,
+    flexGrow: 0,
+  },
+  hScrollWeb: {
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    WebkitOverflowScrolling: 'touch',
   },
   hScrollContent: {
     paddingHorizontal: SPACING.md,
-  },
-  vScroll: {
-    flex: 1,
-  },
-  vScrollContent: {
-    paddingBottom: 20,
   },
   headerRow: {
     flexDirection: 'row',

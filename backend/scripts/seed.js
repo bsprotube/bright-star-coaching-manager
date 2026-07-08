@@ -10,7 +10,7 @@ const User = require('../models/User');
 const Batch = require('../models/Batch');
 const StudentDetail = require('../models/StudentDetail');
 const FeeRecord = require('../models/FeeRecord');
-const { generateMonthlyFeeForStudent } = require('../services/billingService');
+const { generateDuesUpToDateForStudent } = require('../services/billingService');
 
 const seedData = async () => {
   try {
@@ -32,6 +32,7 @@ const seedData = async () => {
       description: 'Foundation course for Assam Direct Recruitment Examinations',
       schedule: 'Mon-Fri 09:00 AM - 11:30 AM',
       monthlyFeeDefault: 1500,
+      classDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
     });
     console.log(`Created Batch: ${batch.name}`);
 
@@ -69,13 +70,13 @@ const seedData = async () => {
       address: 'Zoo Road, Guwahati, Assam',
       admissionDate: new Date(),
       monthlyFee: 1500,
+      admissionFee: 500, // one-time joining fee — separate from the recurring monthly fee
       batchId: batch._id,
       photoUrl: '',
     });
 
-    // 5. Generate current month fee dues invoice for the student
-    const currentMonth = new Date().toISOString().substring(0, 7); // "YYYY-MM"
-    await generateMonthlyFeeForStudent(studentUser._id, currentMonth);
+    // 5. Generate the joining fee (and backfill any elapsed monthly cycles)
+    await generateDuesUpToDateForStudent(studentUser._id);
 
     console.log('----------------------------------------------------');
     console.log('Database Seeding Completed Successfully!');

@@ -278,6 +278,8 @@ const StudentListScreen = ({ navigation }) => {
           data={students}
           keyExtractor={(item) => item.id}
           renderItem={renderStudentItem}
+          style={styles.flatList}
+          scrollEnabled={false}
           contentContainerStyle={styles.listContainer}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
@@ -466,6 +468,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  flatList: {
+    flexGrow: 1,
   },
   listContainer: {
     padding: SPACING.md,
