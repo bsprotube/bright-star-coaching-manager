@@ -6,6 +6,7 @@ const fs = require('fs');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const { finalizeAllExpiredCodes } = require('./controllers/attendanceController');
+const { generateDuesForAllActiveStudents } = require('./services/billingService');
 
 // Load environment variables
 dotenv.config();
@@ -82,6 +83,25 @@ const runAbsentCheck = async () => {
 
 runAbsentCheck();
 setInterval(runAbsentCheck, ABSENT_CHECK_INTERVAL_MS);
+
+// Background scheduler: automatic monthly fee generation.
+// Every 5 minutes, back-fill any missing billing cycles for every active
+// student. This used to run on every single /fees/dues request, which
+// became slow (and eventually timed out) as the number of students grew —
+// moving it to a periodic background job keeps that endpoint fast while
+// still keeping fee records automatically up to date.
+const BILLING_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+const runBillingCheck = async () => {
+  try {
+    await generateDuesForAllActiveStudents();
+  } catch (err) {
+    console.error(`Background billing-check failed: ${err.message}`);
+  }
+};
+
+runBillingCheck();
+setInterval(runBillingCheck, BILLING_CHECK_INTERVAL_MS);
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {

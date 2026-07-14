@@ -8,20 +8,32 @@ const { generateDuesForAllActiveStudents } = require('../services/billingService
 // @access  Private (Admin)
 const getDues = async (req, res, next) => {
   try {
-    // Auto-catchup: generate any missing billing cycles for every active student
-    // (from their admission date up to today). This is what makes monthly fee
-    // generation automatic — no manual "Trigger Billing" step needed anymore.
-    await generateDuesForAllActiveStudents();
+    // NOTE: billing catch-up used to run here on every request, but with
+    // enough students that became slow enough to time out (each student
+    // needs several sequential DB round-trips). It now runs periodically in
+    // the background instead (see server.js), so this endpoint just reads
+    // whatever fee records already exist and responds immediately.
 
-    const billingMonth = req.query.month || new Date().toISOString().substring(0, 7); // Default current month YYYY-MM
-    
-    // Find all partial/pending fee records for the month that are due
-    // (dueDate <= now — with GRACE_PERIOD_DAYS = 0, this is immediate)
-    const feeRecords = await FeeRecord.find({
-      billingMonth,
+    // If a specific ?month=YYYY-MM is requested, scope to that month. Otherwise
+    // aggregate EVERY outstanding invoice across all months — a student who owes
+    // for several past months, or whose current month hasn't been billed yet by
+    // the background job, must still count toward the dashboard's total. Scoping
+    // to only the current month was making the dues show ₹0 / 0 invoices.
+    const requestedMonth = req.query.month;
+
+    const query = {
       status: { $in: ['pending', 'partial'] },
       dueDate: { $lte: new Date() },
-    }).populate('studentId', 'name phone');
+    };
+    if (requestedMonth) {
+      query.billingMonth = requestedMonth;
+    }
+
+    const rawFeeRecords = await FeeRecord.find(query).populate('studentId', 'name phone');
+
+    // Guard against orphaned fee records whose student no longer exists — with
+    // populate() those come back with studentId === null and would crash below.
+    const feeRecords = rawFeeRecords.filter(f => f.studentId);
 
     const studentIds = feeRecords.map(f => f.studentId._id);
 
@@ -52,7 +64,7 @@ const getDues = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      month: billingMonth,
+      month: requestedMonth || 'all',
       count: duesList.length,
       data: duesList,
     });
