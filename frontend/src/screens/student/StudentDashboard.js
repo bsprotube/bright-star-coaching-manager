@@ -16,8 +16,10 @@ import Card from '../../components/Card';
 import CodeInput from '../../components/CodeInput';
 import Button from '../../components/Button';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const StudentDashboard = () => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -113,8 +115,10 @@ const StudentDashboard = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Class Check-In" />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="Class Check-In" />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -122,10 +126,11 @@ const StudentDashboard = () => {
         </View>
       ) : (
         <ScrollView
+          style={scrollStyle}
           contentContainerStyle={styles.container}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
         >
           {/* Roster detail info header */}
           <View style={styles.greetingHeader}>
@@ -204,7 +209,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: SPACING.md,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   greetingHeader: {
     marginBottom: 20,

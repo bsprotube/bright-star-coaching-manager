@@ -13,8 +13,10 @@ import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const AttendanceHistoryScreen = () => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -92,8 +94,10 @@ const AttendanceHistoryScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Attendance Logs" />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="Attendance Logs" />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -104,10 +108,11 @@ const AttendanceHistoryScreen = () => {
           data={history}
           keyExtractor={(item) => item._id}
           renderItem={renderHistoryItem}
+          style={scrollStyle}
           contentContainerStyle={styles.listContainer}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
           ListHeaderComponent={
             <Card style={styles.statsCard}>
               <View style={styles.statsGrid}>
@@ -158,7 +163,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: SPACING.md,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   statsCard: {
     marginBottom: 20,

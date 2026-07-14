@@ -14,8 +14,10 @@ import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const TeacherDashboard = ({ navigation }) => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -101,8 +103,10 @@ const TeacherDashboard = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Teacher Panel" />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="Teacher Panel" />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -113,10 +117,11 @@ const TeacherDashboard = ({ navigation }) => {
           data={batches}
           keyExtractor={(item) => item._id}
           renderItem={renderBatchItem}
+          style={scrollStyle}
           contentContainerStyle={styles.container}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
           ListHeaderComponent={
             <View style={styles.welcomeSection}>
               <Text style={styles.welcomeText}>Welcome, {user?.name}</Text>

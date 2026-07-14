@@ -12,6 +12,8 @@ import {
   Alert,
   Image,
   ScrollView,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
@@ -21,6 +23,27 @@ import Button from '../../components/Button';
 import api, { BASE_URL } from '../../services/api';
 
 const StudentListScreen = ({ navigation }) => {
+  // On web, lock the screen to the exact viewport height (in px) so the FlatList
+  // gets a real bounded height and becomes the single, smooth scroller. Using a
+  // concrete pixel value (not a flex/`100vh` guess) is what reliably stops the
+  // "shakes but won't scroll" fight with the page-level (#root) scroller.
+  const { height: windowHeight } = useWindowDimensions();
+
+  // Everything above the list (header + filters) measured at runtime, so the list
+  // can be given an explicit pixel height instead of relying on flex:1 — the flex
+  // chain is broken by React Navigation's web card (the screen container never gets
+  // a definite height), which let the list stretch to its full content height and
+  // simply get clipped instead of scrolling.
+  const [listTop, setListTop] = useState(0);
+  const webListHeight =
+    Platform.OS === 'web' && listTop > 0 ? Math.max(windowHeight - listTop, 200) : null;
+
+  // In a flex column, the `flex` shorthand sets flex-basis, which governs the
+  // main-axis size and overrides `height` outright. Both `flex: 1` and `flex: 0`
+  // resolve to flex-basis: 0%, so every height we set here was being ignored.
+  // Pinning flex-basis to `auto` is what lets an explicit height actually apply.
+  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [students, setStudents] = useState([]);
@@ -149,28 +172,52 @@ const StudentListScreen = ({ navigation }) => {
     return null;
   };
 
+  const performDeleteStudent = async (student) => {
+    try {
+      const res = await api.delete(`/students/${student.id}`);
+      if (res.data.success) {
+        setDetailModalVisible(false);
+        fetchStudents();
+        if (Platform.OS === 'web') {
+          window.alert(`"${student.name}" has been removed from the list.`);
+        } else {
+          Alert.alert('Success', 'Student removed successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Delete student error', error);
+      const msg = error.response?.data?.message || 'Failed to remove student';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
+    }
+  };
+
   const handleDeleteStudent = (student) => {
+    if (!student) return;
+    const message = `Are you sure you want to remove student "${student.name}" from the list? This cannot be undone.`;
+
+    // react-native-web's Alert.alert doesn't render multiple tappable buttons,
+    // so a native-style confirm dialog never surfaces the destructive action on
+    // web. Use the browser's built-in confirm() there, and Alert.alert on mobile.
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) {
+        performDeleteStudent(student);
+      }
+      return;
+    }
+
     Alert.alert(
-      'Deactivate Student',
-      `Are you sure you want to deactivate and soft-delete student "${student.name}"?`,
+      'Remove Student',
+      message,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Deactivate',
+          text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await api.delete(`/students/${student.id}`);
-              if (res.data.success) {
-                Alert.alert('Success', 'Student deactivated successfully');
-                setDetailModalVisible(false);
-                fetchStudents();
-              }
-            } catch (error) {
-              console.error('Deactivate student error', error);
-              Alert.alert('Error', error.response?.data?.message || 'Deactivation failed');
-            }
-          },
+          onPress: () => performDeleteStudent(student),
         },
       ]
     );
@@ -199,6 +246,13 @@ const StudentListScreen = ({ navigation }) => {
           <Text style={styles.studentMeta}>📱 Phone: {item.phone}</Text>
           <Text style={styles.studentMeta}>📚 Batch: {item.batch}</Text>
         </View>
+        <TouchableOpacity
+          style={styles.deleteBtn}
+          onPress={() => handleDeleteStudent(item)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.deleteBtnText}>🗑️ Delete</Text>
+        </TouchableOpacity>
       </View>
     </Card>
   );
@@ -216,7 +270,12 @@ const StudentListScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+      ]}
+    >
       <Header
         title="Student Directory"
         showBackButton
@@ -231,7 +290,13 @@ const StudentListScreen = ({ navigation }) => {
         }
       />
 
-      <View style={styles.searchFilterContainer}>
+      <View
+        style={styles.searchFilterContainer}
+        onLayout={(e) => {
+          const { y, height } = e.nativeEvent.layout;
+          setListTop(Math.round(y + height));
+        }}
+      >
         <Input
           placeholder="Search by name or mobile..."
           value={search}
@@ -278,11 +343,17 @@ const StudentListScreen = ({ navigation }) => {
           data={students}
           keyExtractor={(item) => item.id}
           renderItem={renderStudentItem}
-          style={styles.flatList}
-          scrollEnabled={false}
+          style={[styles.flatList, webListHeight != null && fixedHeight(webListHeight)]}
           contentContainerStyle={styles.listContainer}
+          // On web, react-native-web moves the ScrollView's `style` prop onto the
+          // RefreshControl wrapper instead of the actual scrolling element, so our
+          // flex:1 / minHeight:0 never reaches the scroller and it can't bound
+          // itself to scroll. Pull-to-refresh is a touch gesture that does nothing
+          // with a mouse anyway, so skip it on web and keep the scroller intact.
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+            Platform.OS === 'web' ? undefined : (
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+            )
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -429,7 +500,7 @@ const StudentListScreen = ({ navigation }) => {
                 {/* Operations Actions */}
                 <View style={styles.profileActions}>
                   <Button
-                    title="Deactivate"
+                    title="Delete"
                     type="danger"
                     onPress={() => handleDeleteStudent(selectedStudent)}
                     style={styles.profileActionBtn}
@@ -463,6 +534,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+    // web: exact viewport height is applied inline via useWindowDimensions.
   },
   loaderContainer: {
     flex: 1,
@@ -470,11 +542,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   flatList: {
-    flexGrow: 1,
+    flex: 1,
+    // min-height:0 lets this flex child actually shrink and enable its own
+    // internal scroll on web instead of expanding to fit all rows.
+    ...Platform.select({ web: { minHeight: 0 } }),
   },
   listContainer: {
     padding: SPACING.md,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   addIconBtn: {
     justifyContent: 'center',
@@ -558,6 +633,21 @@ const styles = StyleSheet.create({
   studentInfo: {
     flex: 1,
   },
+  deleteBtn: {
+    marginLeft: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    alignSelf: 'center',
+  },
+  deleteBtnText: {
+    color: COLORS.error,
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
   studentHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -597,6 +687,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
+    // RN Web's <Modal> wraps this in a position:fixed, inset:0 container, but
+    // that container never gives modalBg an explicit bounded height for
+    // percentage/flex children to shrink against. Without minHeight:0 here,
+    // modalContent's ScrollView never shrinks to fit and the browser's own
+    // page scrollbar takes over instead — the exact "only the page scrolls"
+    // bug from the Student Log Profile screenshot.
+    ...Platform.select({ web: { minHeight: 0, overflow: 'hidden' } }),
   },
   modalContent: {
     backgroundColor: COLORS.background,
@@ -606,6 +703,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderColor: COLORS.surfaceLight,
+    ...Platform.select({ web: { minHeight: 0, overflow: 'hidden', display: 'flex' } }),
   },
   modalLoader: {
     flex: 1,
@@ -619,6 +717,7 @@ const styles = StyleSheet.create({
   },
   profileWrapper: {
     flex: 1,
+    ...Platform.select({ web: { minHeight: 0, overflow: 'hidden', display: 'flex' } }),
   },
   detailTitle: {
     color: COLORS.text,
@@ -629,6 +728,7 @@ const styles = StyleSheet.create({
   },
   profileScroll: {
     flex: 1,
+    ...Platform.select({ web: { minHeight: 0 } }),
   },
   profileHeader: {
     alignItems: 'center',

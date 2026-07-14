@@ -16,8 +16,10 @@ import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import api, { BASE_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const StudentProfileScreen = () => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user, logout } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -56,8 +58,10 @@ const StudentProfileScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="My Profile" />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="My Profile" />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -65,10 +69,11 @@ const StudentProfileScreen = () => {
         </View>
       ) : (
         <ScrollView
+          style={scrollStyle}
           contentContainerStyle={styles.container}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
         >
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
@@ -131,7 +136,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: SPACING.md,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   avatarSection: {
     alignItems: 'center',

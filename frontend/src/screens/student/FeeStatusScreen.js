@@ -14,8 +14,10 @@ import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const FeeStatusScreen = () => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -130,8 +132,10 @@ const FeeStatusScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="My Invoices" />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="My Invoices" />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -142,10 +146,11 @@ const FeeStatusScreen = () => {
           data={invoices}
           keyExtractor={(item) => item._id}
           renderItem={renderInvoiceItem}
+          style={scrollStyle}
           contentContainerStyle={styles.listContainer}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No monthly invoice sheets generated for your profile.</Text>
@@ -169,7 +174,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: SPACING.md,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   invoiceCard: {
     marginBottom: 14,

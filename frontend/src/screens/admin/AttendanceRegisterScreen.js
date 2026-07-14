@@ -12,6 +12,7 @@ import {
   Alert,
   Image,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -35,6 +36,21 @@ const AVATAR_SIZE = 32;
 const HScrollWrapper = Platform.OS === 'web' ? View : ScrollView;
 
 const AttendanceRegisterScreen = ({ navigation, route }) => {
+  const { height: windowHeight } = useWindowDimensions();
+
+  // In a flex column, the `flex` shorthand also sets flex-basis, which governs the
+  // main-axis size and overrides `height` outright (flex:1 -> flex-basis:0%). That
+  // silently swallowed every height we set, so the scroll area stretched to its full
+  // content height and got clipped by React Navigation's web card instead of
+  // scrolling. Pinning flex-basis to `auto` is what makes an explicit height stick.
+  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
+
+  // Height of everything above the scroll area (header + controls + legend),
+  // measured at runtime so the scroller can get a real pixel height.
+  const [scrollTop, setScrollTop] = useState(0);
+  const webScrollHeight =
+    Platform.OS === 'web' && scrollTop > 0 ? Math.max(windowHeight - scrollTop, 200) : null;
+
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState(route.params?.batch || null);
@@ -144,7 +160,12 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+      ]}
+    >
       <Header
         title="Attendance Register"
         showBackButton
@@ -189,7 +210,13 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
       </View>
 
       {/* Legend */}
-      <View style={styles.legendBar}>
+      <View
+        style={styles.legendBar}
+        onLayout={(e) => {
+          const { y, height } = e.nativeEvent.layout;
+          setScrollTop(Math.round(y + height));
+        }}
+      >
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
           <Text style={styles.legendText}>Present</Text>
@@ -212,6 +239,11 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
         </View>
       </View>
 
+      <ScrollView
+        style={[styles.vScroll, webScrollHeight != null && fixedHeight(webScrollHeight)]}
+        contentContainerStyle={styles.vScrollContent}
+        showsVerticalScrollIndicator={true}
+      >
       {loadingRegister || loadingBatches ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -222,11 +254,11 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
         </View>
       ) : (
         <>
-          {/* Register Table: horizontal scroll for dates; vertical scroll is
-              handled by the page-level root scroll (see App.js), not nested here.
-              On web we use a plain native-overflow View instead of RN's ScrollView
-              component here, because ScrollView's JS wheel-handling was fighting
-              with the page's vertical scroll and causing a "shaking"/jitter feel. */}
+          {/* Register Table: horizontal scroll for dates. Vertical scroll is the
+              bounded <ScrollView> wrapping this whole block (the page-level #root
+              scroll is unreliable behind React Navigation's web card).
+              On web we use a plain native-overflow View for the HORIZONTAL scroll
+              because ScrollView's JS wheel-handling fought the vertical scroll. */}
           <View style={styles.tableWrapper}>
             <HScrollWrapper
               {...(Platform.OS === 'web'
@@ -352,6 +384,7 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
           </View>
         </>
       )}
+      </ScrollView>
 
       {/* Batch selector Modal */}
       <Modal
@@ -488,6 +521,14 @@ const styles = StyleSheet.create({
   legendText: {
     color: COLORS.textMuted,
     fontSize: 10,
+  },
+  vScroll: {
+    flex: 1,
+    // min-height:0 lets this flex child shrink and own its internal scroll on web.
+    ...Platform.select({ web: { minHeight: 0 } }),
+  },
+  vScrollContent: {
+    paddingBottom: 40,
   },
   tableWrapper: {
     paddingBottom: 20,

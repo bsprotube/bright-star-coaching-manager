@@ -16,8 +16,10 @@ import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import api, { BASE_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const ManualAttendanceScreen = ({ route, navigation }) => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { batchId, batchName } = route.params;
 
   const [loading, setLoading] = useState(true);
@@ -186,31 +188,33 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header
-        title={`Roster: ${batchName}`}
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-      />
-
-      <View style={styles.dateBar}>
-        <Input
-          label="Attendance Date (YYYY-MM-DD)"
-          value={date}
-          onChangeText={setDate}
-          placeholder="e.g. 2026-06-23"
-          style={styles.dateInput}
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header
+          title={`Roster: ${batchName}`}
+          showBackButton
+          onBackPress={() => navigation.goBack()}
         />
-      </View>
 
-      {!loading && students.some(s => s.pendingFeeAmount > 0) ? (
-        <View style={styles.feeSummaryBar}>
-          <Text style={styles.feeSummaryText}>
-            💸 {students.filter(s => s.pendingFeeAmount > 0).length} student(s) with pending fees — Total: ₹
-            {students.reduce((sum, s) => sum + (s.pendingFeeAmount || 0), 0)}
-          </Text>
+        <View style={styles.dateBar}>
+          <Input
+            label="Attendance Date (YYYY-MM-DD)"
+            value={date}
+            onChangeText={setDate}
+            placeholder="e.g. 2026-06-23"
+            style={styles.dateInput}
+          />
         </View>
-      ) : null}
+
+        {!loading && students.some(s => s.pendingFeeAmount > 0) ? (
+          <View style={styles.feeSummaryBar}>
+            <Text style={styles.feeSummaryText}>
+              💸 {students.filter(s => s.pendingFeeAmount > 0).length} student(s) with pending fees — Total: ₹
+              {students.reduce((sum, s) => sum + (s.pendingFeeAmount || 0), 0)}
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -221,10 +225,11 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
           data={students}
           keyExtractor={(item) => item.studentId}
           renderItem={renderStudentRow}
+          style={scrollStyle}
           contentContainerStyle={styles.listContainer}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No students enrolled in this batch.</Text>

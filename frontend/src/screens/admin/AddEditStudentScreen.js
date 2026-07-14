@@ -12,6 +12,7 @@ import {
   FlatList,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
@@ -22,6 +23,20 @@ import Card from '../../components/Card';
 import api, { BASE_URL } from '../../services/api';
 
 const AddEditStudentScreen = ({ route, navigation }) => {
+  const { height: windowHeight } = useWindowDimensions();
+
+  // In a flex column, the `flex` shorthand also sets flex-basis, which governs the
+  // main-axis size and overrides `height` outright (flex:1 -> flex-basis:0%). That
+  // silently swallowed every height we set, so the form stretched to its full content
+  // height and got clipped by React Navigation's web card instead of scrolling.
+  // Pinning flex-basis to `auto` is what makes an explicit height actually stick.
+  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
+
+  // Header height, measured at runtime, so the form scroller gets a real px height.
+  const [scrollTop, setScrollTop] = useState(0);
+  const webScrollHeight =
+    Platform.OS === 'web' && scrollTop > 0 ? Math.max(windowHeight - scrollTop, 200) : null;
+
   const editingStudent = route.params?.student; // Check if editing
   const preselectedBatchId = route.params?.batchId; // Pre-fill batch when added from a batch card
   
@@ -253,14 +268,31 @@ const AddEditStudentScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header
-        title={editingStudent ? 'Edit Student Profile' : 'Enroll Student'}
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-      />
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+      ]}
+    >
+      <View
+        onLayout={(e) => {
+          const { y, height } = e.nativeEvent.layout;
+          setScrollTop(Math.round(y + height));
+        }}
+      >
+        <Header
+          title={editingStudent ? 'Edit Student Profile' : 'Enroll Student'}
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+        />
+      </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={[styles.scrollView, webScrollHeight != null && fixedHeight(webScrollHeight)]}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={true}
+      >
         {/* Photo Upload Circle */}
         <View style={styles.photoContainer}>
           <TouchableOpacity activeOpacity={0.8} onPress={handlePhotoOptions} style={styles.photoCircle}>
@@ -447,13 +479,12 @@ const AddEditStudentScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    height: '100%',
     backgroundColor: COLORS.background,
+    // web: exact viewport height is applied inline via useWindowDimensions.
   },
   scrollView: {
     flex: 1,
-    height: '100%',
-    overflow: 'scroll',
+    ...Platform.select({ web: { minHeight: 0 } }),
   },
   errorBanner: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',

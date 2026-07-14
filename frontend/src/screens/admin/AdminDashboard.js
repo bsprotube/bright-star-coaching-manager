@@ -14,8 +14,10 @@ import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const AdminDashboard = ({ navigation }) => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,45 +29,51 @@ const AdminDashboard = ({ navigation }) => {
   });
 
   const fetchDashboardData = async () => {
-    try {
-      // 1. Fetch batches (to get active students sum and batch count)
-      const batchRes = await api.get('/batches');
-      let totalStudentsCount = 0;
-      let totalBatchesCount = 0;
+    // Fetch the two sources independently. They used to share one try/catch, so a
+    // single slow/failing call (e.g. /fees/dues timing out while Render's free tier
+    // wakes up) threw before setStats ran and every tile fell back to 0 — including
+    // students and batches, which had actually loaded fine.
+    const [batchResult, duesResult] = await Promise.allSettled([
+      api.get('/batches'),
+      api.get('/fees/dues'),
+    ]);
 
-      if (batchRes.data.success) {
-        totalBatchesCount = batchRes.data.count;
-        totalStudentsCount = batchRes.data.data.reduce(
-          (acc, b) => acc + (b.studentCount || 0),
-          0
-        );
-      }
+    let totalStudentsCount = 0;
+    let totalBatchesCount = 0;
+    let totalOutstandingAmount = 0;
+    let totalUnpaidCount = 0;
 
-      // 2. Fetch outstanding dues (pending/partial)
-      const duesRes = await api.get('/fees/dues');
-      let totalOutstandingAmount = 0;
-      let totalUnpaidCount = 0;
-
-      if (duesRes.data.success) {
-        totalUnpaidCount = duesRes.data.count;
-        totalOutstandingAmount = duesRes.data.data.reduce(
-          (acc, f) => acc + (f.amountDue - f.amountPaid),
-          0
-        );
-      }
-
-      setStats({
-        activeStudents: totalStudentsCount,
-        totalBatches: totalBatchesCount,
-        outstandingDues: totalOutstandingAmount,
-        feeRecordsCount: totalUnpaidCount,
-      });
-    } catch (error) {
-      console.error('Error fetching dashboard stats', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    if (batchResult.status === 'fulfilled' && batchResult.value.data.success) {
+      const batchData = batchResult.value.data;
+      totalBatchesCount = batchData.count;
+      totalStudentsCount = batchData.data.reduce(
+        (acc, b) => acc + (b.studentCount || 0),
+        0
+      );
+    } else {
+      console.error('Error fetching batches for dashboard', batchResult.reason);
     }
+
+    if (duesResult.status === 'fulfilled' && duesResult.value.data.success) {
+      const duesData = duesResult.value.data;
+      totalUnpaidCount = duesData.count;
+      totalOutstandingAmount = duesData.data.reduce(
+        (acc, f) => acc + (f.amountDue - f.amountPaid),
+        0
+      );
+    } else {
+      console.error('Error fetching dues for dashboard', duesResult.reason);
+    }
+
+    setStats({
+      activeStudents: totalStudentsCount,
+      totalBatches: totalBatchesCount,
+      outstandingDues: totalOutstandingAmount,
+      feeRecordsCount: totalUnpaidCount,
+    });
+
+    setLoading(false);
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -91,8 +99,10 @@ const AdminDashboard = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Admin Dashboard" />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="Admin Dashboard" />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -100,10 +110,11 @@ const AdminDashboard = ({ navigation }) => {
         </View>
       ) : (
         <ScrollView
+          style={scrollStyle}
           contentContainerStyle={styles.container}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
         >
           {/* Greeting */}
           <View style={styles.welcomeSection}>
@@ -175,6 +186,15 @@ const AdminDashboard = ({ navigation }) => {
             >
               <Text style={styles.menuEmoji}>🪙</Text>
               <Text style={styles.menuText}>Fees</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[styles.menuItem, styles.menuItemFull]}
+              onPress={() => navigation.navigate('TestList')}
+            >
+              <Text style={styles.menuEmoji}>📝</Text>
+              <Text style={styles.menuText}>Tests, Marks & Performance</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

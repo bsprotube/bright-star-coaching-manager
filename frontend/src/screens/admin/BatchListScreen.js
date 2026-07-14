@@ -18,8 +18,10 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const BatchListScreen = ({ navigation }) => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [batches, setBatches] = useState([]);
@@ -237,17 +239,19 @@ const BatchListScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header
-        title="Manage Batches"
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-        rightElement={
-          <TouchableOpacity onPress={handleOpenAddModal} style={styles.addIconBtn}>
-            <Text style={styles.addIconText}>＋</Text>
-          </TouchableOpacity>
-        }
-      />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header
+          title="Manage Batches"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+          rightElement={
+            <TouchableOpacity onPress={handleOpenAddModal} style={styles.addIconBtn}>
+              <Text style={styles.addIconText}>＋</Text>
+            </TouchableOpacity>
+          }
+        />
+      </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -258,10 +262,11 @@ const BatchListScreen = ({ navigation }) => {
           data={batches}
           keyExtractor={(item) => item._id}
           renderItem={renderBatchItem}
+          style={scrollStyle}
           contentContainerStyle={styles.listContainer}
-          refreshControl={
+          refreshControl={webRefreshControl(
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-          }
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No batches configured yet.</Text>

@@ -10,6 +10,9 @@ import GenerateCodeScreen from '../screens/admin/GenerateCodeScreen';
 import FeeManagementScreen from '../screens/admin/FeeManagementScreen';
 import ReportsScreen from '../screens/admin/ReportsScreen';
 import AttendanceRegisterScreen from '../screens/admin/AttendanceRegisterScreen';
+import TestListScreen from '../screens/admin/TestListScreen';
+import MarksEntryScreen from '../screens/admin/MarksEntryScreen';
+import PerformanceScreen from '../screens/admin/PerformanceScreen';
 import ManualAttendanceScreen from '../screens/teacher/ManualAttendanceScreen';
 
 const Stack = createStackNavigator();
@@ -25,6 +28,9 @@ const AdminNavigator = () => {
       <Stack.Screen name="FeeManagement" component={FeeManagementScreen} />
       <Stack.Screen name="Reports" component={ReportsScreen} />
       <Stack.Screen name="AttendanceRegister" component={AttendanceRegisterScreen} />
+      <Stack.Screen name="TestList" component={TestListScreen} />
+      <Stack.Screen name="MarksEntry" component={MarksEntryScreen} />
+      <Stack.Screen name="Performance" component={PerformanceScreen} />
       <Stack.Screen name="ManualAttendance" component={ManualAttendanceScreen} />
     </Stack.Navigator>
   );

@@ -20,8 +20,10 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api, { API_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const ReportsScreen = ({ navigation }) => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(true);
 
@@ -210,10 +212,16 @@ const ReportsScreen = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Reports Center" showBackButton onBackPress={() => navigation.goBack()} />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header title="Reports Center" showBackButton onBackPress={() => navigation.goBack()} />
+      </View>
 
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={scrollStyle}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Step 1: Report Type */}
         <Text style={styles.sectionTitle}>1. Select Report Type</Text>
         {reportTypesList.map((item) => (

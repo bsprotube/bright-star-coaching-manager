@@ -19,8 +19,10 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api, { API_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const TeacherReportsScreen = ({ route, navigation }) => {
+  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { batchId, batchName } = route.params;
 
   const [reportType, setReportType] = useState('daily-attendance'); // daily-attendance, monthly-attendance
@@ -118,14 +120,20 @@ const TeacherReportsScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header
-        title={`Reports: ${batchName}`}
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-      />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View onLayout={headerLayout}>
+        <Header
+          title={`Reports: ${batchName}`}
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+        />
+      </View>
 
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={scrollStyle}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Step 1: Type */}
         <Text style={styles.label}>1. Select Report Option</Text>
         
