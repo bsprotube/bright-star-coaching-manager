@@ -39,6 +39,7 @@ app.use('/api/batches', require('./routes/batchRoutes'));
 app.use('/api/students', require('./routes/studentRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/fees', require('./routes/feeRoutes'));
+app.use('/api/tests', require('./routes/testRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
 
 // Root Status Check Route
