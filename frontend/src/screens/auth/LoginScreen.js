@@ -15,7 +15,7 @@ import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 
-const LoginScreen = () => {
+const LoginScreen = ({ navigation }) => {
   const { login } = useContext(AuthContext);
   
   const [phone, setPhone] = useState('');
@@ -116,6 +116,13 @@ const LoginScreen = () => {
               loading={isLoading}
               style={styles.loginBtn}
             />
+
+            <Text
+              style={styles.forgotLink}
+              onPress={() => navigation.navigate('ForgotPassword')}
+            >
+              Password bhool gaye?
+            </Text>
           </Card>
 
           <Text style={styles.footerNote}>
@@ -202,6 +209,13 @@ const styles = StyleSheet.create({
   },
   loginBtn: {
     marginTop: 8,
+  },
+  forgotLink: {
+    color: COLORS.primaryLight,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.medium,
+    textAlign: 'center',
+    marginTop: 16,
   },
   footerNote: {
     color: COLORS.textMuted,

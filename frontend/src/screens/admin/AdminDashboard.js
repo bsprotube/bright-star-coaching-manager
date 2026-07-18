@@ -101,7 +101,17 @@ const AdminDashboard = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
       <View onLayout={headerLayout}>
-        <Header title="Admin Dashboard" />
+        <Header
+          title="Admin Dashboard"
+          rightElement={
+            <TouchableOpacity
+              onPress={() => navigation.navigate('AccountSettings')}
+              style={styles.settingsIconBtn}
+            >
+              <Text style={styles.settingsIconText}>⚙️</Text>
+            </TouchableOpacity>
+          }
+        />
       </View>
 
       {loading ? (
@@ -221,6 +231,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  settingsIconBtn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 32,
+    height: 32,
+  },
+  settingsIconText: {
+    fontSize: 20,
   },
   container: {
     padding: SPACING.md,

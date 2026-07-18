@@ -50,6 +50,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Persists an updated user object (e.g. after changing phone/email in Account
+  // Settings) so the new details survive a refresh instead of reverting to the
+  // stale copy read at login.
+  const updateUser = async (userData) => {
+    await setItem('user_data', JSON.stringify(userData));
+    setUser(userData);
+  };
+
   const logout = async () => {
     try {
       await deleteItem('user_token');
@@ -69,6 +77,7 @@ export const AuthProvider = ({ children }) => {
         user,
         login,
         logout,
+        updateUser,
       }}
     >
       {children}

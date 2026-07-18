@@ -5,8 +5,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { AuthContext } from '../context/AuthContext';
 import { COLORS } from '../styles/theme';
 
-// Auth Screen
+// Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 
 // Navigators
 import AdminNavigator from './AdminNavigator';
@@ -30,8 +31,11 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {userToken === null ? (
-          // Unauthenticated screen
-          <Stack.Screen name="Login" component={LoginScreen} />
+          // Unauthenticated screens
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+          </>
         ) : (
           // Authenticated role-based flow
           <>
