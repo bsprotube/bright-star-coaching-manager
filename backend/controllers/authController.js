@@ -1,11 +1,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { JWT_SECRET, JWT_EXPIRE } = require('../config/jwt');
 
 // Helper: Generate JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'supersecretkeyforbrightstarcoachingmanager2026', {
-    expiresIn: process.env.JWT_EXPIRE || '30d',
-  });
+  return jwt.sign({ id }, JWT_SECRET, { expiresIn: JWT_EXPIRE });
 };
 
 // @desc    Auth user & get token

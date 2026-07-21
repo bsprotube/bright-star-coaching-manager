@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { JWT_SECRET } = require('../config/jwt');
 
 // Protect routes
 const protect = async (req, res, next) => {
@@ -14,7 +15,7 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
 
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkeyforbrightstarcoachingmanager2026');
+      const decoded = jwt.verify(token, JWT_SECRET);
 
       // Get user from the token and attach to request
       req.user = await User.findById(decoded.id).select('-password');

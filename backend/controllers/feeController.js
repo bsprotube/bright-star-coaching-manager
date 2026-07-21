@@ -104,7 +104,12 @@ const recordPayment = async (req, res, next) => {
   try {
     const { feeRecordId, amount, paymentMethod, transactionId } = req.body;
 
-    if (!feeRecordId || amount === undefined || amount <= 0) {
+    // Convert once, up front, and validate the NUMBER — not the original value.
+    // `"abc" <= 0` evaluates to false in JS (a NaN comparison), so checking the raw
+    // input let a non-numeric amount slip past this guard and turn amountPaid into
+    // NaN a few lines down, permanently corrupting the invoice.
+    const numericAmount = Number(amount);
+    if (!feeRecordId || amount === undefined || !Number.isFinite(numericAmount) || numericAmount <= 0) {
       res.statusCode = 400;
       throw new Error('Please specify fee record ID and a positive payment amount');
     }
@@ -116,21 +121,21 @@ const recordPayment = async (req, res, next) => {
     }
 
     const totalAllowed = feeRecord.amountDue - feeRecord.amountPaid;
-    if (amount > totalAllowed) {
+    if (numericAmount > totalAllowed) {
       res.statusCode = 400;
       throw new Error(`Amount exceeds remaining balance. Max allowed: ${totalAllowed}`);
     }
 
     // Append transaction
     feeRecord.payments.push({
-      amount: Number(amount),
+      amount: numericAmount,
       paymentMethod: paymentMethod || 'cash',
       transactionId,
       recordedBy: req.user._id,
     });
 
     // Update accumulators
-    feeRecord.amountPaid += Number(amount);
+    feeRecord.amountPaid += numericAmount;
 
     // Calculate Status
     if (feeRecord.amountPaid >= feeRecord.amountDue) {
