@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { JWT_SECRET, JWT_EXPIRE } = require('../config/jwt');
+const { isEmailConfigured, sendOtpEmail } = require('../services/emailService');
+
+const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 // Helper: Generate JWT token
 const generateToken = (id) => {
@@ -112,10 +115,52 @@ const getMe = async (req, res, next) => {
   }
 };
 
+// @desc    Email a one-time code to the logged-in user's CURRENT on-file email —
+//          step 1 before changing phone or password in Account Settings. Sent to
+//          the email already on the account (not any new one being typed in the
+//          same form), so someone who's hijacked a session can't redirect the OTP
+//          to an inbox they control.
+// @route   POST /api/auth/request-otp
+// @access  Private
+const requestOtp = async (req, res, next) => {
+  try {
+    if (!isEmailConfigured()) {
+      res.statusCode = 500;
+      throw new Error('Email verification is not set up on the server yet. Contact your administrator.');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user.email) {
+      res.statusCode = 400;
+      throw new Error('Please set an email address in Account Settings first, then try again.');
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    user.otpHash = otp; // pre('save') hook hashes this
+    user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
+    await user.save();
+
+    await sendOtpEmail(user.email, otp);
+
+    // Mask the email so the UI can show "sent to bi***@gmail.com" without fully
+    // re-displaying it.
+    const maskedEmail = user.email.replace(/^(.{2}).*(@.*)$/, '$1***$2');
+
+    res.status(200).json({
+      success: true,
+      message: `Verification code sent to ${maskedEmail}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Self-service update of the logged-in user's own phone/email/password
 //          and security question. Requires the current password, so anyone who
 //          gets hold of a logged-in session still can't silently take over the
-//          account's credentials.
+//          account's credentials. Changing the phone number or password ALSO
+//          requires a fresh OTP from POST /request-otp — email-only changes
+//          don't need one.
 // @route   PUT /api/auth/update-credentials
 // @access  Private
 const updateCredentials = async (req, res, next) => {
@@ -127,6 +172,7 @@ const updateCredentials = async (req, res, next) => {
       newPassword,
       securityQuestion,
       securityAnswer,
+      otp,
     } = req.body;
 
     if (!currentPassword) {
@@ -134,10 +180,27 @@ const updateCredentials = async (req, res, next) => {
       throw new Error('Please enter your current password to confirm changes');
     }
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+otpHash +otpExpires');
     if (!user || !(await user.matchPassword(currentPassword))) {
       res.statusCode = 401;
       throw new Error('Current password is incorrect');
+    }
+
+    const phoneIsChanging = newPhone && newPhone.trim() !== user.phone;
+    const passwordIsChanging = Boolean(newPassword);
+
+    if (phoneIsChanging || passwordIsChanging) {
+      if (!otp) {
+        res.statusCode = 400;
+        throw new Error('Please request and enter the verification code emailed to you before changing your phone or password');
+      }
+      if (!(await user.matchOtp(otp))) {
+        res.statusCode = 401;
+        throw new Error('Verification code is incorrect or has expired. Please request a new one.');
+      }
+      // Single use — clear it now so the same code can't be replayed.
+      user.otpHash = null;
+      user.otpExpires = null;
     }
 
     if (newPhone && newPhone.trim() !== user.phone) {
@@ -268,6 +331,7 @@ module.exports = {
   login,
   registerAdmin,
   getMe,
+  requestOtp,
   updateCredentials,
   getSecurityQuestion,
   resetPasswordWithSecurityAnswer,

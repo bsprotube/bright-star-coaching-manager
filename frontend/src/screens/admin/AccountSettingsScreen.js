@@ -26,6 +26,7 @@ const AccountSettingsScreen = ({ navigation }) => {
   const [existingQuestion, setExistingQuestion] = useState('');
 
   const [currentPassword, setCurrentPassword] = useState('');
+  const [originalPhone, setOriginalPhone] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,15 +34,23 @@ const AccountSettingsScreen = ({ navigation }) => {
   const [securityQuestion, setSecurityQuestion] = useState('');
   const [securityAnswer, setSecurityAnswer] = useState('');
 
+  // Changing phone or password needs a fresh emailed OTP — email-only changes don't.
+  const [otp, setOtp] = useState('');
+  const [otpSentMessage, setOtpSentMessage] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const needsOtp = newPhone.trim() !== originalPhone || Boolean(newPassword);
 
   const fetchMe = async () => {
     try {
       const res = await api.get('/auth/me');
       if (res.data.success) {
         const me = res.data.user;
+        setOriginalPhone(me.phone || '');
         setNewPhone(me.phone || '');
         setNewEmail(me.email || '');
         setExistingQuestion(me.securityQuestion || '');
@@ -64,6 +73,23 @@ const AccountSettingsScreen = ({ navigation }) => {
     else Alert.alert(title, msg);
   };
 
+  const handleRequestOtp = async () => {
+    setFormError('');
+    setOtpSentMessage('');
+    setSendingOtp(true);
+    try {
+      const res = await api.post('/auth/request-otp');
+      if (res.data.success) {
+        setOtpSentMessage(res.data.message);
+      }
+    } catch (error) {
+      console.error('Request OTP error', error);
+      setFormError(error.response?.data?.message || 'Verification code bhej nahi paya');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const handleSave = async () => {
     setErrors({});
     setFormError('');
@@ -75,6 +101,10 @@ const AccountSettingsScreen = ({ navigation }) => {
     if (newPassword || confirmPassword) {
       if (newPassword.length < 6) newErrors.newPassword = 'Kam se kam 6 characters';
       if (newPassword !== confirmPassword) newErrors.confirmPassword = 'Password match nahi ho raha';
+    }
+
+    if (needsOtp && !otp.trim()) {
+      newErrors.otp = 'Phone ya password badalne ke liye verification code zaroori hai';
     }
 
     // Question and answer must travel together, same rule the backend enforces.
@@ -95,6 +125,7 @@ const AccountSettingsScreen = ({ navigation }) => {
         newEmail: newEmail.trim(),
       };
       if (newPassword) payload.newPassword = newPassword;
+      if (needsOtp) payload.otp = otp.trim();
       if (securityQuestion.trim() && securityAnswer.trim()) {
         payload.securityQuestion = securityQuestion.trim();
         payload.securityAnswer = securityAnswer.trim();
@@ -107,6 +138,9 @@ const AccountSettingsScreen = ({ navigation }) => {
         setNewPassword('');
         setConfirmPassword('');
         setSecurityAnswer('');
+        setOtp('');
+        setOtpSentMessage('');
+        setOriginalPhone(res.data.user.phone || '');
         setExistingQuestion(res.data.user.securityQuestion || '');
         showMessage('Success', 'Account details update ho gaye');
       }
@@ -186,6 +220,37 @@ const AccountSettingsScreen = ({ navigation }) => {
             />
           ) : null}
         </Card>
+
+        {needsOtp ? (
+          <Card style={styles.formCard}>
+            <Text style={styles.sectionHeading}>Email Verification</Text>
+            <Text style={styles.helperText}>
+              Phone number ya password badalne ke liye, aapke account mein abhi
+              set email pe ek verification code bheja jayega.
+            </Text>
+
+            <Button
+              title={otpSentMessage ? 'Code dobara bhejein' : 'Verification Code Bhejein'}
+              type="outline"
+              onPress={handleRequestOtp}
+              loading={sendingOtp}
+              style={styles.otpSendBtn}
+            />
+
+            {otpSentMessage ? (
+              <Text style={styles.otpSentText}>✅ {otpSentMessage}</Text>
+            ) : null}
+
+            <Input
+              label="Verification Code *"
+              value={otp}
+              onChangeText={setOtp}
+              placeholder="6-digit code"
+              keyboardType="numeric"
+              error={errors.otp}
+            />
+          </Card>
+        ) : null}
 
         <Card style={styles.formCard}>
           <Text style={styles.sectionHeading}>Forgot Password Recovery</Text>
@@ -296,6 +361,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceLight,
     borderRadius: 8,
     padding: 10,
+    marginBottom: 14,
+  },
+  otpSendBtn: {
+    marginBottom: 12,
+  },
+  otpSentText: {
+    color: COLORS.success,
+    fontSize: TYPOGRAPHY.sizes.xs,
     marginBottom: 14,
   },
   saveBtn: {

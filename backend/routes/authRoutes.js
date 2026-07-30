@@ -4,6 +4,7 @@ const {
   login,
   registerAdmin,
   getMe,
+  requestOtp,
   updateCredentials,
   getSecurityQuestion,
   resetPasswordWithSecurityAnswer,
@@ -18,6 +19,7 @@ router.post('/forgot-password/question', authLimiter, getSecurityQuestion);
 router.post('/forgot-password/reset', authLimiter, resetPasswordWithSecurityAnswer);
 
 router.get('/me', protect, getMe);
+router.post('/request-otp', protect, authLimiter, requestOtp);
 router.put('/update-credentials', protect, updateCredentials);
 
 module.exports = router;

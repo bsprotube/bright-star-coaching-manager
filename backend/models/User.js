@@ -51,13 +51,27 @@ const userSchema = new mongoose.Schema(
       select: false,
       default: null,
     },
+    // One-time-password for the extra email-verification step required when
+    // changing phone or password from Account Settings. Hashed the same way as
+    // the password itself rather than stored plain, short-lived, and cleared
+    // after a single successful use.
+    otpHash: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    otpExpires: {
+      type: Date,
+      select: false,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Encrypt password (and, if set, hash the security answer) using bcrypt.
+// Encrypt password (and, if set, hash the security answer / OTP) using bcrypt.
 userSchema.pre('save', async function (next) {
   if (this.isModified('password')) {
     const salt = await bcrypt.genSalt(10);
@@ -71,6 +85,11 @@ userSchema.pre('save', async function (next) {
       this.securityAnswerHash.trim().toLowerCase(),
       salt
     );
+  }
+
+  if (this.isModified('otpHash') && this.otpHash) {
+    const salt = await bcrypt.genSalt(10);
+    this.otpHash = await bcrypt.hash(this.otpHash, salt);
   }
 
   next();
@@ -88,6 +107,13 @@ userSchema.methods.matchSecurityAnswer = async function (enteredAnswer) {
     String(enteredAnswer).trim().toLowerCase(),
     this.securityAnswerHash
   );
+};
+
+// Match user entered OTP to the hashed OTP in database, rejecting expired ones.
+userSchema.methods.matchOtp = async function (enteredOtp) {
+  if (!this.otpHash || !this.otpExpires) return false;
+  if (this.otpExpires.getTime() < Date.now()) return false;
+  return await bcrypt.compare(String(enteredOtp).trim(), this.otpHash);
 };
 
 module.exports = mongoose.model('User', userSchema);
