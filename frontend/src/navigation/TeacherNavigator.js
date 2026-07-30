@@ -8,6 +8,9 @@ import TeacherReportsScreen from '../screens/teacher/TeacherReportsScreen';
 import AddEditStudentScreen from '../screens/admin/AddEditStudentScreen';
 import GenerateCodeScreen from '../screens/admin/GenerateCodeScreen';
 import AttendanceRegisterScreen from '../screens/admin/AttendanceRegisterScreen';
+// Role-agnostic (reads /auth/me, writes via /auth/update-credentials), so the same
+// screen serves teachers as well as students.
+import SecurityQuestionScreen from '../screens/student/SecurityQuestionScreen';
 
 const Stack = createStackNavigator();
 
@@ -20,6 +23,7 @@ const TeacherNavigator = () => {
       <Stack.Screen name="AddEditStudent" component={AddEditStudentScreen} />
       <Stack.Screen name="GenerateCode" component={GenerateCodeScreen} />
       <Stack.Screen name="AttendanceRegister" component={AttendanceRegisterScreen} />
+      <Stack.Screen name="SecurityQuestion" component={SecurityQuestionScreen} />
     </Stack.Navigator>
   );
 };

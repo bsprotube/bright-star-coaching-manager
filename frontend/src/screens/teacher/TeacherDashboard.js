@@ -105,7 +105,17 @@ const TeacherDashboard = ({ navigation }) => {
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
       <View onLayout={headerLayout}>
-        <Header title="Teacher Panel" />
+        <Header
+          title="Teacher Panel"
+          rightElement={
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SecurityQuestion')}
+              style={styles.securityIconBtn}
+            >
+              <Text style={styles.securityIconText}>🔑</Text>
+            </TouchableOpacity>
+          }
+        />
       </View>
 
       {loading ? (
@@ -148,6 +158,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  securityIconBtn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 32,
+    height: 32,
+  },
+  securityIconText: {
+    fontSize: 18,
   },
   container: {
     padding: SPACING.md,
