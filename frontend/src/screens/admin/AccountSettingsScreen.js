@@ -28,6 +28,7 @@ const AccountSettingsScreen = ({ navigation }) => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [originalPhone, setOriginalPhone] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const [originalEmail, setOriginalEmail] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -52,6 +53,7 @@ const AccountSettingsScreen = ({ navigation }) => {
         const me = res.data.user;
         setOriginalPhone(me.phone || '');
         setNewPhone(me.phone || '');
+        setOriginalEmail(me.email || '');
         setNewEmail(me.email || '');
         setExistingQuestion(me.securityQuestion || '');
         setSecurityQuestion(me.securityQuestion || '');
@@ -75,9 +77,31 @@ const AccountSettingsScreen = ({ navigation }) => {
 
   const handleRequestOtp = async () => {
     setFormError('');
+    setErrors({});
     setOtpSentMessage('');
+
+    // request-otp emails whatever is already SAVED in the database, not whatever
+    // is currently typed in the email field above — so if this account has no
+    // email on file yet, or the one typed here hasn't been saved, save it first
+    // (an email-only change needs no OTP of its own) before asking for a code.
+    if (!currentPassword) {
+      setErrors({ currentPassword: 'Current password zaroori hai' });
+      setFormError('Neeche "Confirm" section mein apna current password bharein, phir dobara try karein');
+      return;
+    }
+
     setSendingOtp(true);
     try {
+      if (newEmail.trim() && newEmail.trim() !== originalEmail) {
+        const saveRes = await api.put('/auth/update-credentials', {
+          currentPassword,
+          newEmail: newEmail.trim(),
+        });
+        if (saveRes.data.success) {
+          setOriginalEmail(saveRes.data.user.email || '');
+        }
+      }
+
       const res = await api.post('/auth/request-otp');
       if (res.data.success) {
         setOtpSentMessage(res.data.message);
@@ -141,6 +165,7 @@ const AccountSettingsScreen = ({ navigation }) => {
         setOtp('');
         setOtpSentMessage('');
         setOriginalPhone(res.data.user.phone || '');
+        setOriginalEmail(res.data.user.email || '');
         setExistingQuestion(res.data.user.securityQuestion || '');
         showMessage('Success', 'Account details update ho gaye');
       }
