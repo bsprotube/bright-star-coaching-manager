@@ -18,7 +18,7 @@ import Button from '../../components/Button';
 import api, { BASE_URL } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
-const StudentProfileScreen = () => {
+const StudentProfileScreen = ({ navigation }) => {
   const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
   const { user, logout } = useContext(AuthContext);
 
@@ -110,6 +110,14 @@ const StudentProfileScreen = () => {
             {renderProfileDetail('Contact Email', profile?.email)}
             {renderProfileDetail('Home Address', profile?.address)}
           </Card>
+
+          {/* Forgot Password Setup */}
+          <Button
+            title="🔑 Forgot Password Setup"
+            type="outline"
+            onPress={() => navigation.navigate('SecurityQuestion')}
+            style={styles.securityBtn}
+          />
 
           {/* Logout Action */}
           <Button
@@ -208,8 +216,11 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     paddingLeft: 16,
   },
-  logoutBtn: {
+  securityBtn: {
     marginTop: 32,
+  },
+  logoutBtn: {
+    marginTop: 12,
   },
 });
 

@@ -13,6 +13,7 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import AdminNavigator from './AdminNavigator';
 import TeacherNavigator from './TeacherNavigator';
 import StudentNavigator from './StudentNavigator';
+import SecurityQuestionScreen from '../screens/student/SecurityQuestionScreen';
 
 const Stack = createStackNavigator();
 
@@ -46,7 +47,10 @@ const AppNavigator = () => {
               <Stack.Screen name="TeacherFlow" component={TeacherNavigator} />
             )}
             {user?.role === 'student' && (
-              <Stack.Screen name="StudentFlow" component={StudentNavigator} />
+              <>
+                <Stack.Screen name="StudentFlow" component={StudentNavigator} />
+                <Stack.Screen name="SecurityQuestion" component={SecurityQuestionScreen} />
+              </>
             )}
           </>
         )}

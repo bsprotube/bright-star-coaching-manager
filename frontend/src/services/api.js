@@ -2,14 +2,13 @@ import axios from 'axios';
 import { getItem, deleteItem } from '../utils/storage';
 
 // ===============================
-// Live Render Backend API
+// Backend API base URL
 // ===============================
-// NOTE: Render's free tier spins down after inactivity, so the first request can
-// take 30-50s and may exceed the timeout below.
-// To develop against the local backend instead, swap in:
-//   export const BASE_URL = 'http://localhost:5000/api';
-// (the local server uses the LOCAL MongoDB, which holds different data)
-export const BASE_URL = 'https://bright-star-coaching-manager.onrender.com/api';
+// Render service was deleted — pointed at the local backend (LOCAL MongoDB,
+// separate data from whatever production ends up being) until a new host exists.
+// Swap back to a live URL once one exists:
+//   export const BASE_URL = 'https://<new-host>/api';
+export const BASE_URL = 'http://localhost:5000/api';
 export const API_URL = BASE_URL;
 
 const api = axios.create({
