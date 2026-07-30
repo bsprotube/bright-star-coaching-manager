@@ -117,18 +117,18 @@ const TestListScreen = ({ navigation }) => {
   const totalMaxMarks = subjects.reduce((sum, s) => sum + (Number(s.maxMarks) || 0), 0);
 
   const handleCreate = async () => {
-    if (!title.trim()) return setFormError('Test ka naam daalein');
-    if (!modalBatchId) return setFormError('Batch select karein');
-    if (subjects.length === 0) return setFormError('Kam se kam ek subject add karein');
+    if (!title.trim()) return setFormError('Please enter a test name');
+    if (!modalBatchId) return setFormError('Please select a batch');
+    if (subjects.length === 0) return setFormError('Please add at least one subject');
 
     const cleaned = subjects.map((s) => ({
       name: s.name.trim(),
       maxMarks: Number(s.maxMarks),
     }));
 
-    if (cleaned.some((s) => !s.name)) return setFormError('Har subject ka naam zaroori hai');
+    if (cleaned.some((s) => !s.name)) return setFormError('Every subject needs a name');
     if (cleaned.some((s) => !Number.isFinite(s.maxMarks) || s.maxMarks < 1)) {
-      return setFormError('Har subject ke max marks kam se kam 1 hone chahiye');
+      return setFormError('Every subject needs max marks of at least 1');
     }
 
     setFormError('');
@@ -146,14 +146,14 @@ const TestListScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Create test error', error);
-      setFormError(error.response?.data?.message || 'Test create nahi ho paya');
+      setFormError(error.response?.data?.message || 'Could not create the test');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteTest = (test) => {
-    const message = `"${test.title}" delete karein? Iske saare marks bhi delete ho jayenge.`;
+    const message = `Delete "${test.title}"? All of its marks will be deleted too.`;
 
     const doDelete = async () => {
       try {
@@ -161,7 +161,7 @@ const TestListScreen = ({ navigation }) => {
         if (res.data.success) fetchTests();
       } catch (error) {
         console.error('Delete test error', error);
-        const msg = error.response?.data?.message || 'Delete nahi ho paya';
+        const msg = error.response?.data?.message || 'Could not delete';
         if (Platform.OS === 'web') window.alert(msg);
         else Alert.alert('Error', msg);
       }
@@ -268,11 +268,11 @@ const TestListScreen = ({ navigation }) => {
                 navigation.navigate('Performance', { batchId: selectedBatchId })
               }
             >
-              <Text style={styles.performanceBtnText}>📊 Is batch ka Performance dekho</Text>
+              <Text style={styles.performanceBtnText}>📊 View this batch's performance</Text>
             </TouchableOpacity>
           ) : (
             <Text style={styles.hintText}>
-              Performance dekhne ke liye upar se ek batch chunein
+              Select a batch above to view performance
             </Text>
           )}
         </View>
@@ -294,8 +294,8 @@ const TestListScreen = ({ navigation }) => {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Abhi koi test nahi hai.</Text>
-              <Text style={styles.emptySubtext}>Upar ＋ dabakar naya test banayein.</Text>
+              <Text style={styles.emptyText}>No tests yet.</Text>
+              <Text style={styles.emptySubtext}>Tap ＋ above to create one.</Text>
             </View>
           }
         />
@@ -310,7 +310,7 @@ const TestListScreen = ({ navigation }) => {
       >
         <View style={styles.modalBg}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Naya Test</Text>
+            <Text style={styles.modalTitle}>New Test</Text>
 
             <ScrollView style={styles.modalForm} keyboardShouldPersistTaps="handled">
               {formError ? (
@@ -320,7 +320,7 @@ const TestListScreen = ({ navigation }) => {
               ) : null}
 
               <Input
-                label="Test ka naam *"
+                label="Test name *"
                 value={title}
                 onChangeText={setTitle}
                 placeholder="e.g. ADRE Mock Test 1"
@@ -355,7 +355,7 @@ const TestListScreen = ({ navigation }) => {
 
               <Text style={styles.fieldLabel}>Subjects *</Text>
               <Text style={styles.fieldHint}>
-                Tap karke add karein. Ek subject ka test ho to sirf ek add karein.
+                Tap to add. For a single-subject test, just add one.
               </Text>
 
               <View style={styles.quickAddRow}>

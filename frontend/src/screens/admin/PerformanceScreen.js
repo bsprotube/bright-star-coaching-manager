@@ -49,7 +49,7 @@ const PerformanceScreen = ({ route, navigation }) => {
       if (res.data.success) setReport(res.data.data);
     } catch (error) {
       console.error('Error fetching performance', error);
-      Alert.alert('Error', 'Performance report load nahi ho paya');
+      Alert.alert('Error', 'Could not load the performance report');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,7 +74,7 @@ const PerformanceScreen = ({ route, navigation }) => {
       if (res.data.success) setDetail(res.data.data);
     } catch (error) {
       console.error('Error fetching student performance', error);
-      Alert.alert('Error', 'Student ka record load nahi ho paya');
+      Alert.alert('Error', 'Could not load the student record');
       setDetailVisible(false);
     } finally {
       setDetailLoading(false);
@@ -101,7 +101,7 @@ const PerformanceScreen = ({ route, navigation }) => {
             <Text style={styles.rollText}>Roll: {item.rollNumber}</Text>
 
             {item.averagePercentage === null ? (
-              <Text style={styles.noDataText}>Abhi koi test nahi diya</Text>
+              <Text style={styles.noDataText}>No tests taken yet</Text>
             ) : (
               <View style={styles.subjectSummary}>
                 {item.weakestSubject ? (
@@ -171,7 +171,7 @@ const PerformanceScreen = ({ route, navigation }) => {
 
           {report.classSubjects.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Subject-wise (poori class ka average)</Text>
+              <Text style={styles.sectionLabel}>Subject-wise (class average)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {report.classSubjects.map((s) => (
                   <View key={s.name} style={styles.subjectPill}>
@@ -198,7 +198,7 @@ const PerformanceScreen = ({ route, navigation }) => {
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Is batch mein koi student nahi hai.</Text>
+            <Text style={styles.emptyText}>No students in this batch.</Text>
           </View>
         }
       />
@@ -220,7 +220,7 @@ const PerformanceScreen = ({ route, navigation }) => {
               <>
                 <Text style={styles.modalTitle}>{detail.name}</Text>
                 <Text style={styles.modalSubtitle}>
-                  {detail.testsTaken} test diye ·{' '}
+                  {detail.testsTaken} tests taken ·{' '}
                   <Text style={{ color: percentColor(detail.averagePercentage) }}>
                     Average {detail.averagePercentage === null ? '–' : `${detail.averagePercentage}%`}
                   </Text>
@@ -254,7 +254,7 @@ const PerformanceScreen = ({ route, navigation }) => {
 
                   <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Test history</Text>
                   {detail.history.length === 0 ? (
-                    <Text style={styles.emptyText}>Abhi koi test record nahi.</Text>
+                    <Text style={styles.emptyText}>No test records yet.</Text>
                   ) : (
                     detail.history.map((h) => (
                       <View key={h.testId} style={styles.historyRow}>

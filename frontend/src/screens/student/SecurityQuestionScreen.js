@@ -45,7 +45,7 @@ const SecurityQuestionScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching account details', error);
-      Alert.alert('Error', 'Details load nahi ho paye');
+      Alert.alert('Error', 'Could not load your details');
     } finally {
       setLoading(false);
     }
@@ -65,9 +65,9 @@ const SecurityQuestionScreen = ({ navigation }) => {
     setFormError('');
 
     const newErrors = {};
-    if (!currentPassword) newErrors.currentPassword = 'Current password zaroori hai';
-    if (!securityQuestion.trim()) newErrors.securityQuestion = 'Question zaroori hai';
-    if (!securityAnswer.trim()) newErrors.securityAnswer = 'Answer zaroori hai';
+    if (!currentPassword) newErrors.currentPassword = 'Current password is required';
+    if (!securityQuestion.trim()) newErrors.securityQuestion = 'Security question is required';
+    if (!securityAnswer.trim()) newErrors.securityAnswer = 'Answer is required';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -85,11 +85,11 @@ const SecurityQuestionScreen = ({ navigation }) => {
         setCurrentPassword('');
         setSecurityAnswer('');
         setExistingQuestion(res.data.user.securityQuestion || '');
-        showMessage('Success', 'Recovery question set ho gaya');
+        showMessage('Success', 'Your recovery question has been saved');
       }
     } catch (error) {
       console.error('Update security question error', error);
-      setFormError(error.response?.data?.message || 'Save nahi ho paya');
+      setFormError(error.response?.data?.message || 'Could not save your changes');
     } finally {
       setSaving(false);
     }
@@ -125,19 +125,19 @@ const SecurityQuestionScreen = ({ navigation }) => {
 
         <Card style={styles.formCard}>
           <Text style={styles.helperText}>
-            Agar aap kabhi apna password bhool jayein, to Login screen pe "Password
-            bhool gaye?" dabakar is question ke jawab se naya password set kar
-            sakte hain. Isko yaad rakhein — sirf aap hi jaante ho ye jawab.
+            If you ever forget your password, tap "Forgot password?" on the sign-in
+            screen and answer this question to set a new one. Remember the answer —
+            only you should know it.
           </Text>
 
           {existingQuestion ? (
             <Text style={styles.currentQuestionNote}>
-              ✅ Abhi set hai: "{existingQuestion}"
+              ✅ Currently set: "{existingQuestion}"
             </Text>
           ) : (
             <Text style={styles.currentQuestionNote}>
-              ⚠️ Abhi koi recovery question set nahi hai — "Forgot Password" kaam
-              nahi karega jab tak aap isko set nahi karte.
+              ⚠️ No recovery question is set yet — Forgot Password will not work
+              until you set one.
             </Text>
           )}
 
@@ -145,7 +145,7 @@ const SecurityQuestionScreen = ({ navigation }) => {
             label="Security Question"
             value={securityQuestion}
             onChangeText={setSecurityQuestion}
-            placeholder="e.g. Aapke pehle school ka naam?"
+            placeholder="e.g. What was the name of your first school?"
             error={errors.securityQuestion}
           />
 
@@ -153,7 +153,7 @@ const SecurityQuestionScreen = ({ navigation }) => {
             label="Answer"
             value={securityAnswer}
             onChangeText={setSecurityAnswer}
-            placeholder={existingQuestion ? 'Naya answer set karne ke liye likhein' : 'Answer likhein'}
+            placeholder={existingQuestion ? 'Type a new answer to change it' : 'Type your answer'}
             error={errors.securityAnswer}
           />
 
@@ -161,7 +161,7 @@ const SecurityQuestionScreen = ({ navigation }) => {
             label="Current Password *"
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            placeholder="Confirm karne ke liye abhi ka password"
+            placeholder="Your current password, to confirm"
             secureTextEntry
             error={errors.currentPassword}
           />

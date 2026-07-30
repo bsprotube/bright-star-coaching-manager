@@ -60,7 +60,7 @@ const AccountSettingsScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching account details', error);
-      Alert.alert('Error', 'Account details load nahi ho paye');
+      Alert.alert('Error', 'Could not load account details');
     } finally {
       setLoading(false);
     }
@@ -85,8 +85,8 @@ const AccountSettingsScreen = ({ navigation }) => {
     // email on file yet, or the one typed here hasn't been saved, save it first
     // (an email-only change needs no OTP of its own) before asking for a code.
     if (!currentPassword) {
-      setErrors({ currentPassword: 'Current password zaroori hai' });
-      setFormError('Neeche "Confirm" section mein apna current password bharein, phir dobara try karein');
+      setErrors({ currentPassword: 'Current password is required' });
+      setFormError('Please enter your current password in the Confirm section below, then try again');
       return;
     }
 
@@ -108,7 +108,7 @@ const AccountSettingsScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Request OTP error', error);
-      setFormError(error.response?.data?.message || 'Verification code bhej nahi paya');
+      setFormError(error.response?.data?.message || 'Could not send the verification code');
     } finally {
       setSendingOtp(false);
     }
@@ -119,21 +119,21 @@ const AccountSettingsScreen = ({ navigation }) => {
     setFormError('');
 
     const newErrors = {};
-    if (!currentPassword) newErrors.currentPassword = 'Current password zaroori hai';
-    if (!newPhone.trim()) newErrors.newPhone = 'Phone number zaroori hai';
+    if (!currentPassword) newErrors.currentPassword = 'Current password is required';
+    if (!newPhone.trim()) newErrors.newPhone = 'Phone number is required';
 
     if (newPassword || confirmPassword) {
-      if (newPassword.length < 6) newErrors.newPassword = 'Kam se kam 6 characters';
-      if (newPassword !== confirmPassword) newErrors.confirmPassword = 'Password match nahi ho raha';
+      if (newPassword.length < 6) newErrors.newPassword = 'Must be at least 6 characters';
+      if (newPassword !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
     }
 
     if (needsOtp && !otp.trim()) {
-      newErrors.otp = 'Phone ya password badalne ke liye verification code zaroori hai';
+      newErrors.otp = 'A verification code is required to change your phone number or password';
     }
 
     // Question and answer must travel together, same rule the backend enforces.
     if ((securityQuestion.trim() || securityAnswer.trim()) && (!securityQuestion.trim() || !securityAnswer.trim())) {
-      newErrors.securityAnswer = 'Question aur Answer dono bharein';
+      newErrors.securityAnswer = 'Please fill in both the question and the answer';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -167,11 +167,11 @@ const AccountSettingsScreen = ({ navigation }) => {
         setOriginalPhone(res.data.user.phone || '');
         setOriginalEmail(res.data.user.email || '');
         setExistingQuestion(res.data.user.securityQuestion || '');
-        showMessage('Success', 'Account details update ho gaye');
+        showMessage('Success', 'Your account details have been updated');
       }
     } catch (error) {
       console.error('Update credentials error', error);
-      setFormError(error.response?.data?.message || 'Update nahi ho paya');
+      setFormError(error.response?.data?.message || 'Could not save your changes');
     } finally {
       setSaving(false);
     }
@@ -226,10 +226,10 @@ const AccountSettingsScreen = ({ navigation }) => {
           />
 
           <Input
-            label="New Password (khaali chhodein agar change nahi karna)"
+            label="New Password (leave blank to keep current)"
             value={newPassword}
             onChangeText={setNewPassword}
-            placeholder="Kam se kam 6 characters"
+            placeholder="At least 6 characters"
             secureTextEntry
             error={errors.newPassword}
           />
@@ -239,7 +239,7 @@ const AccountSettingsScreen = ({ navigation }) => {
               label="Confirm New Password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholder="Naya password dobara likhein"
+              placeholder="Re-enter the new password"
               secureTextEntry
               error={errors.confirmPassword}
             />
@@ -250,12 +250,12 @@ const AccountSettingsScreen = ({ navigation }) => {
           <Card style={styles.formCard}>
             <Text style={styles.sectionHeading}>Email Verification</Text>
             <Text style={styles.helperText}>
-              Phone number ya password badalne ke liye, aapke account mein abhi
-              set email pe ek verification code bheja jayega.
+              To change your phone number or password, a verification code will be
+              sent to the email address currently on your account.
             </Text>
 
             <Button
-              title={otpSentMessage ? 'Code dobara bhejein' : 'Verification Code Bhejein'}
+              title={otpSentMessage ? 'Resend Code' : 'Send Verification Code'}
               type="outline"
               onPress={handleRequestOtp}
               loading={sendingOtp}
@@ -280,18 +280,18 @@ const AccountSettingsScreen = ({ navigation }) => {
         <Card style={styles.formCard}>
           <Text style={styles.sectionHeading}>Forgot Password Recovery</Text>
           <Text style={styles.helperText}>
-            Ye question "Password bhool gaye?" screen mein pucha jayega. Isko yaad
-            rakhein — sirf aap hi jaante ho ye jawab.
+            This question is asked on the Forgot Password screen. Remember it —
+            only you should know the answer.
           </Text>
 
           {existingQuestion ? (
             <Text style={styles.currentQuestionNote}>
-              ✅ Abhi set hai: "{existingQuestion}"
+              ✅ Currently set: "{existingQuestion}"
             </Text>
           ) : (
             <Text style={styles.currentQuestionNote}>
-              ⚠️ Abhi koi security question set nahi hai — "Forgot Password" kaam nahi karega
-              jab tak aap isko set nahi karte.
+              ⚠️ No security question is set yet — Forgot Password will not work
+              until you set one.
             </Text>
           )}
 
@@ -299,14 +299,14 @@ const AccountSettingsScreen = ({ navigation }) => {
             label="Security Question"
             value={securityQuestion}
             onChangeText={setSecurityQuestion}
-            placeholder="e.g. Aapke pehle student ka naam?"
+            placeholder="e.g. What was your first student's name?"
           />
 
           <Input
             label="Answer"
             value={securityAnswer}
             onChangeText={setSecurityAnswer}
-            placeholder={existingQuestion ? 'Naya answer set karne ke liye likhein' : 'Answer likhein'}
+            placeholder={existingQuestion ? 'Type a new answer to change it' : 'Type your answer'}
             error={errors.securityAnswer}
           />
         </Card>
@@ -314,13 +314,13 @@ const AccountSettingsScreen = ({ navigation }) => {
         <Card style={styles.formCard}>
           <Text style={styles.sectionHeading}>Confirm</Text>
           <Text style={styles.helperText}>
-            Security ke liye, changes save karne se pehle apna current password daalein.
+            For your security, enter your current password before saving any changes.
           </Text>
           <Input
             label="Current Password *"
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            placeholder="Abhi ka password"
+            placeholder="Your current password"
             secureTextEntry
             error={errors.currentPassword}
           />

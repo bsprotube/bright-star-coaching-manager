@@ -46,7 +46,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
   const handleFindOptions = async () => {
     resetMessages();
     if (!phone.trim()) {
-      setErrors({ phone: 'Phone number daalein' });
+      setErrors({ phone: 'Please enter your phone number' });
       return;
     }
 
@@ -68,7 +68,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
       }
     } catch (error) {
       setGeneralError(
-        error.response?.data?.message || 'Is number ke liye recovery set nahi hai'
+        error.response?.data?.message || 'No password recovery is set up for this number'
       );
     } finally {
       setLoading(false);
@@ -86,7 +86,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
         setStep(3);
       }
     } catch (error) {
-      setGeneralError(error.response?.data?.message || 'Code bhej nahi paya');
+      setGeneralError(error.response?.data?.message || 'Could not send the verification code');
       // Fall back to the question if that's set up, rather than dead-ending.
       if (opts?.questionAvailable) setStep(2);
     } finally {
@@ -109,13 +109,13 @@ const ForgotPasswordScreen = ({ navigation }) => {
     setSuccessMessage('');
 
     const newErrors = {};
-    if (method === 'email' && !otp.trim()) newErrors.otp = 'Email pe aaya code daalein';
-    if (method === 'question' && !answer.trim()) newErrors.answer = 'Answer daalein';
+    if (method === 'email' && !otp.trim()) newErrors.otp = 'Please enter the code sent to your email';
+    if (method === 'question' && !answer.trim()) newErrors.answer = 'Please enter your answer';
     if (!newPassword || newPassword.length < 6) {
-      newErrors.newPassword = 'Kam se kam 6 characters ka password';
+      newErrors.newPassword = 'Password must be at least 6 characters';
     }
     if (confirmPassword !== newPassword) {
-      newErrors.confirmPassword = 'Password match nahi ho raha';
+      newErrors.confirmPassword = 'Passwords do not match';
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -130,22 +130,22 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
       const res = await api.post('/auth/forgot-password/reset', payload);
       if (res.data.success) {
-        setSuccessMessage('Password reset ho gaya! Ab naye password se login karein.');
+        setSuccessMessage('Password reset successfully. Please sign in with your new password.');
         setTimeout(() => navigation.navigate('Login'), 1800);
       }
     } catch (error) {
-      setGeneralError(error.response?.data?.message || 'Reset nahi ho paya');
+      setGeneralError(error.response?.data?.message || 'Could not reset the password');
     } finally {
       setLoading(false);
     }
   };
 
   const subtitle = () => {
-    if (step === 1) return 'Apna phone number daalein';
-    if (step === 2) return 'Verify kaise karna hai?';
+    if (step === 1) return 'Enter your phone number';
+    if (step === 2) return 'How would you like to verify?';
     return method === 'email'
-      ? 'Email pe aaya 6-digit code daalein'
-      : 'Security question ka jawab dein';
+      ? 'Enter the 6-digit code sent to your email'
+      : 'Answer your security question';
   };
 
   return (
@@ -163,7 +163,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
             <View style={styles.logoContainer}>
               <Text style={styles.logoEmoji}>🔑</Text>
             </View>
-            <Text style={styles.title}>Password Bhool Gaye?</Text>
+            <Text style={styles.title}>Forgot Password?</Text>
             <Text style={styles.subtitle}>{subtitle()}</Text>
           </View>
 
@@ -214,7 +214,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
                 >
                   <Text style={styles.methodEmoji}>📧</Text>
                   <View style={styles.methodTextWrap}>
-                    <Text style={styles.methodTitle}>Email pe code bhejein</Text>
+                    <Text style={styles.methodTitle}>Email me a code</Text>
                     <Text style={styles.methodDesc}>{options?.maskedEmail}</Text>
                   </View>
                 </TouchableOpacity>
@@ -248,20 +248,20 @@ const ForgotPasswordScreen = ({ navigation }) => {
                       error={errors.otp}
                     />
                     <Text style={styles.resendLink} onPress={handleResend}>
-                      Code dobara bhejein
+                      Resend code
                     </Text>
                   </>
                 ) : (
                   <>
                     <View style={styles.questionBox}>
-                      <Text style={styles.questionLabel}>Aapka Security Question:</Text>
+                      <Text style={styles.questionLabel}>Your security question:</Text>
                       <Text style={styles.questionText}>{options?.question}</Text>
                     </View>
                     <Input
                       label="Answer"
                       value={answer}
                       onChangeText={setAnswer}
-                      placeholder="Jawab likhein"
+                      placeholder="Type your answer"
                       error={errors.answer}
                     />
                   </>
@@ -271,7 +271,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   label="New Password"
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="Kam se kam 6 characters"
+                  placeholder="At least 6 characters"
                   secureTextEntry
                   error={errors.newPassword}
                 />
@@ -279,7 +279,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
                   label="Confirm New Password"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Naya password dobara likhein"
+                  placeholder="Re-enter the new password"
                   secureTextEntry
                   error={errors.confirmPassword}
                 />
@@ -294,7 +294,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
           </Card>
 
           <Text style={styles.backLink} onPress={() => navigation.navigate('Login')}>
-            ← Login page par wapas jayein
+            ← Back to sign in
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

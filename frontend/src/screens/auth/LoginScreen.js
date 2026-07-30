@@ -121,7 +121,7 @@ const LoginScreen = ({ navigation }) => {
               style={styles.forgotLink}
               onPress={() => navigation.navigate('ForgotPassword')}
             >
-              Password bhool gaye?
+              Forgot password?
             </Text>
           </Card>
 

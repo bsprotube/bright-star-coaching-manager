@@ -49,7 +49,7 @@ const MarksEntryScreen = ({ route, navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching test', error);
-      Alert.alert('Error', 'Test load nahi ho paya');
+      Alert.alert('Error', 'Could not load the test');
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ const MarksEntryScreen = ({ route, navigation }) => {
   const handleSave = async () => {
     const overMax = getOverMaxSubjects();
     if (overMax.length > 0) {
-      const msg = `Ye marks max se zyada hain:\n\n${overMax.slice(0, 5).join('\n')}`;
+      const msg = `These marks exceed the maximum:\n\n${overMax.slice(0, 5).join('\n')}`;
       if (Platform.OS === 'web') window.alert(msg);
       else Alert.alert('Invalid Marks', msg);
       return;
@@ -138,7 +138,7 @@ const MarksEntryScreen = ({ route, navigation }) => {
       }
     } catch (error) {
       console.error('Save marks error', error);
-      const msg = error.response?.data?.message || 'Marks save nahi ho paye';
+      const msg = error.response?.data?.message || 'Could not save the marks';
       if (Platform.OS === 'web') window.alert(msg);
       else Alert.alert('Error', msg);
     } finally {
@@ -176,7 +176,7 @@ const MarksEntryScreen = ({ route, navigation }) => {
 
         {entry.isAbsent ? (
           <Text style={styles.absentNote}>
-            Absent — ye test average aur ranking mein nahi ginaa jayega.
+            Absent — this test is excluded from averages and ranking.
           </Text>
         ) : (
           <>
@@ -270,7 +270,7 @@ const MarksEntryScreen = ({ route, navigation }) => {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Is batch mein koi active student nahi hai.</Text>
+            <Text style={styles.emptyText}>No active students in this batch.</Text>
           </View>
         }
       />
