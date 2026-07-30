@@ -12,7 +12,6 @@ import {
   FlatList,
   ActivityIndicator,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
@@ -21,21 +20,10 @@ import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 import api, { BASE_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const AddEditStudentScreen = ({ route, navigation }) => {
-  const { height: windowHeight } = useWindowDimensions();
-
-  // In a flex column, the `flex` shorthand also sets flex-basis, which governs the
-  // main-axis size and overrides `height` outright (flex:1 -> flex-basis:0%). That
-  // silently swallowed every height we set, so the form stretched to its full content
-  // height and got clipped by React Navigation's web card instead of scrolling.
-  // Pinning flex-basis to `auto` is what makes an explicit height actually stick.
-  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
-
-  // Header height, measured at runtime, so the form scroller gets a real px height.
-  const [scrollTop, setScrollTop] = useState(0);
-  const webScrollHeight =
-    Platform.OS === 'web' && scrollTop > 0 ? Math.max(windowHeight - scrollTop, 200) : null;
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
 
   const editingStudent = route.params?.student; // Check if editing
   const preselectedBatchId = route.params?.batchId; // Pre-fill batch when added from a batch card
@@ -271,14 +259,10 @@ const AddEditStudentScreen = ({ route, navigation }) => {
     <SafeAreaView
       style={[
         styles.safeArea,
-        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+        screenStyle,
       ]}
     >
       <View
-        onLayout={(e) => {
-          const { y, height } = e.nativeEvent.layout;
-          setScrollTop(Math.round(y + height));
-        }}
       >
         <Header
           title={editingStudent ? 'Edit Student Profile' : 'Enroll Student'}
@@ -288,7 +272,7 @@ const AddEditStudentScreen = ({ route, navigation }) => {
       </View>
 
       <ScrollView
-        style={[styles.scrollView, webScrollHeight != null && fixedHeight(webScrollHeight)]}
+        style={[styles.scrollView, scrollStyle]}
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={true}
@@ -480,7 +464,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
-    // web: exact viewport height is applied inline via useWindowDimensions.
   },
   scrollView: {
     flex: 1,

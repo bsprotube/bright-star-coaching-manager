@@ -32,7 +32,7 @@ const percentColor = (pct) => {
 
 const PerformanceScreen = ({ route, navigation }) => {
   const { batchId } = route.params;
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -142,7 +142,7 @@ const PerformanceScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header
           title="Performance"
           showBackButton

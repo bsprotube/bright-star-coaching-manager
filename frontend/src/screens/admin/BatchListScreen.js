@@ -21,7 +21,7 @@ import api from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const BatchListScreen = ({ navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [batches, setBatches] = useState([]);
@@ -240,7 +240,7 @@ const BatchListScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header
           title="Manage Batches"
           showBackButton

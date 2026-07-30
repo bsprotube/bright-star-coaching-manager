@@ -19,7 +19,7 @@ import api from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const AccountSettingsScreen = ({ navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle } = useWebScroll();
+  const { screenStyle, scrollStyle } = useWebScroll();
   const { user, updateUser } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -190,7 +190,7 @@ const AccountSettingsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header title="Account Settings" showBackButton onBackPress={() => navigation.goBack()} />
       </View>
 

@@ -19,7 +19,7 @@ import api, { BASE_URL } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const StudentProfileScreen = ({ navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const { user, logout } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -59,7 +59,7 @@ const StudentProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header title="My Profile" />
       </View>
 

@@ -15,12 +15,15 @@ import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 // Two ways to prove ownership, because the accounts differ: admins have an email on
 // file so they can just receive a code (nothing to remember), while students and
 // teachers usually don't and fall back to their security question. Step 1 asks the
 // server which of the two this phone number can actually use.
 const ForgotPasswordScreen = ({ navigation }) => {
+  const { screenStyle, scrollStyle } = useWebScroll();
+
   const [step, setStep] = useState(1); // 1 = phone, 2 = pick method, 3 = verify + new password
   const [method, setMethod] = useState(null); // 'email' | 'question'
 
@@ -149,13 +152,14 @@ const ForgotPasswordScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView
+          style={scrollStyle}
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
         >

@@ -23,7 +23,7 @@ import useWebScroll from '../../hooks/useWebScroll';
 // require an emailed OTP. Most students don't have an email on file, so this stays
 // a simple current-password-only confirmation instead of blocking them on that.
 const SecurityQuestionScreen = ({ navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle } = useWebScroll();
+  const { screenStyle, scrollStyle } = useWebScroll();
 
   const [loading, setLoading] = useState(true);
   const [existingQuestion, setExistingQuestion] = useState('');
@@ -108,7 +108,7 @@ const SecurityQuestionScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header title="Forgot Password Setup" showBackButton onBackPress={() => navigation.goBack()} />
       </View>
 

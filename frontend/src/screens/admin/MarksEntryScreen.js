@@ -20,7 +20,7 @@ import useWebScroll from '../../hooks/useWebScroll';
 
 const MarksEntryScreen = ({ route, navigation }) => {
   const { testId } = route.params;
-  const { screenStyle, headerLayout, scrollStyle } = useWebScroll();
+  const { screenStyle, scrollStyle } = useWebScroll();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -245,7 +245,7 @@ const MarksEntryScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header
           title="Marks Entry"
           showBackButton

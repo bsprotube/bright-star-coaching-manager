@@ -23,7 +23,7 @@ import api, { API_URL } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const ReportsScreen = ({ navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(true);
 
@@ -213,7 +213,7 @@ const ReportsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header title="Reports Center" showBackButton onBackPress={() => navigation.goBack()} />
       </View>
 

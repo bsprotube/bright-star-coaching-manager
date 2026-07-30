@@ -22,7 +22,7 @@ import api, { API_URL } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const TeacherReportsScreen = ({ route, navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const { batchId, batchName } = route.params;
 
   const [reportType, setReportType] = useState('daily-attendance'); // daily-attendance, monthly-attendance
@@ -121,7 +121,7 @@ const TeacherReportsScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header
           title={`Reports: ${batchName}`}
           showBackButton

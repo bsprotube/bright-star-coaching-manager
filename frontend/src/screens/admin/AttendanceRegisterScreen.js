@@ -12,7 +12,6 @@ import {
   Alert,
   Image,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -20,6 +19,7 @@ import { getItem } from '../../utils/storage';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
 import api, { API_URL, BASE_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const CELL_WIDTH = 34;
@@ -36,20 +36,7 @@ const AVATAR_SIZE = 32;
 const HScrollWrapper = Platform.OS === 'web' ? View : ScrollView;
 
 const AttendanceRegisterScreen = ({ navigation, route }) => {
-  const { height: windowHeight } = useWindowDimensions();
-
-  // In a flex column, the `flex` shorthand also sets flex-basis, which governs the
-  // main-axis size and overrides `height` outright (flex:1 -> flex-basis:0%). That
-  // silently swallowed every height we set, so the scroll area stretched to its full
-  // content height and got clipped by React Navigation's web card instead of
-  // scrolling. Pinning flex-basis to `auto` is what makes an explicit height stick.
-  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
-
-  // Height of everything above the scroll area (header + controls + legend),
-  // measured at runtime so the scroller can get a real pixel height.
-  const [scrollTop, setScrollTop] = useState(0);
-  const webScrollHeight =
-    Platform.OS === 'web' && scrollTop > 0 ? Math.max(windowHeight - scrollTop, 200) : null;
+  const { screenStyle, scrollStyle } = useWebScroll();
 
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(true);
@@ -163,7 +150,7 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
     <SafeAreaView
       style={[
         styles.safeArea,
-        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+        screenStyle,
       ]}
     >
       <Header
@@ -210,13 +197,7 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
       </View>
 
       {/* Legend */}
-      <View
-        style={styles.legendBar}
-        onLayout={(e) => {
-          const { y, height } = e.nativeEvent.layout;
-          setScrollTop(Math.round(y + height));
-        }}
-      >
+      <View style={styles.legendBar}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: COLORS.success }]} />
           <Text style={styles.legendText}>Present</Text>
@@ -240,7 +221,7 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
       </View>
 
       <ScrollView
-        style={[styles.vScroll, webScrollHeight != null && fixedHeight(webScrollHeight)]}
+        style={[styles.vScroll, scrollStyle]}
         contentContainerStyle={styles.vScrollContent}
         showsVerticalScrollIndicator={true}
       >

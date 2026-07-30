@@ -13,7 +13,6 @@ import {
   ScrollView,
   Image,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
@@ -21,21 +20,12 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api, { BASE_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const FeeManagementScreen = ({ navigation }) => {
-  const { height: windowHeight } = useWindowDimensions();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
 
-  // In a flex column, the `flex` shorthand also sets flex-basis, which governs the
-  // main-axis size and overrides `height` outright (flex:1 -> flex-basis:0%). That
-  // silently swallowed every height, so the list stretched to its full content height
-  // and got clipped by React Navigation's web card instead of scrolling. Pinning
-  // flex-basis to `auto` is what makes an explicit height actually stick.
-  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
 
-  // Height of everything above the list (header + month filter), measured at runtime.
-  const [listTop, setListTop] = useState(0);
-  const webListHeight =
-    Platform.OS === 'web' && listTop > 0 ? Math.max(windowHeight - listTop, 200) : null;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -230,7 +220,7 @@ const FeeManagementScreen = ({ navigation }) => {
     <SafeAreaView
       style={[
         styles.safeArea,
-        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+        screenStyle,
       ]}
     >
       <Header
@@ -255,10 +245,6 @@ const FeeManagementScreen = ({ navigation }) => {
       {/* Month Filter Selector */}
       <View
         style={styles.filterBar}
-        onLayout={(e) => {
-          const { y, height } = e.nativeEvent.layout;
-          setListTop(Math.round(y + height));
-        }}
       >
         <Text style={styles.filterLabel}>Billing Month:</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll}>
@@ -285,16 +271,14 @@ const FeeManagementScreen = ({ navigation }) => {
           data={dues}
           keyExtractor={(item) => item.feeRecordId}
           renderItem={renderDueItem}
-          style={webListHeight != null ? fixedHeight(webListHeight) : undefined}
+          style={scrollStyle}
           contentContainerStyle={styles.listContainer}
           // react-native-web moves a ScrollView's `style` onto the RefreshControl
           // wrapper instead of the scrolling element, so our height would never reach
           // the scroller. Pull-to-refresh does nothing with a mouse anyway.
-          refreshControl={
-            Platform.OS === 'web' ? undefined : (
+          refreshControl={webRefreshControl(
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-            )
-          }
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Awesome! No outstanding dues for this month.</Text>

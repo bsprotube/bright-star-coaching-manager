@@ -9,14 +9,17 @@ import {
   Modal,
   FlatList,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import api from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const GenerateCodeScreen = ({ navigation }) => {
+  const { screenStyle, scrollStyle } = useWebScroll();
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState(null);
@@ -149,10 +152,12 @@ const GenerateCodeScreen = ({ navigation }) => {
   const durationsList = [5, 10, 15, 30, 45, 60];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Generate Attendance" showBackButton onBackPress={() => navigation.goBack()} />
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
+      <View>
+        <Header title="Generate Attendance" showBackButton onBackPress={() => navigation.goBack()} />
+      </View>
 
-      <View style={styles.container}>
+      <ScrollView style={scrollStyle} contentContainerStyle={styles.container}>
         {/* Selection Card */}
         <Card style={styles.configCard}>
           <Text style={styles.label}>Select Classroom Batch</Text>
@@ -216,7 +221,7 @@ const GenerateCodeScreen = ({ navigation }) => {
             <Text style={styles.noCodeSubText}>Select a batch and click generate to open check-in access.</Text>
           </Card>
         )}
-      </View>
+      </ScrollView>
 
       {/* Batch selector Modal */}
       <Modal
@@ -268,7 +273,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: SPACING.md,
-    flex: 1,
+    paddingBottom: 40,
   },
   configCard: {
     paddingVertical: 20,

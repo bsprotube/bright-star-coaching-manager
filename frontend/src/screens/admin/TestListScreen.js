@@ -33,7 +33,7 @@ const COMMON_SUBJECTS = [
 ];
 
 const TestListScreen = ({ navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -221,7 +221,7 @@ const TestListScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header
           title="Tests & Marks"
           showBackButton

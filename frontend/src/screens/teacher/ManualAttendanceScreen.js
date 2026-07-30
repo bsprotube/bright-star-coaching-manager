@@ -19,7 +19,7 @@ import api, { BASE_URL } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const ManualAttendanceScreen = ({ route, navigation }) => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const { batchId, batchName } = route.params;
 
   const [loading, setLoading] = useState(true);
@@ -189,7 +189,7 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header
           title={`Roster: ${batchName}`}
           showBackButton

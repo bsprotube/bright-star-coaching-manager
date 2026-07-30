@@ -16,7 +16,7 @@ import api from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const AttendanceHistoryScreen = () => {
-  const { screenStyle, headerLayout, scrollStyle, webRefreshControl } = useWebScroll();
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,7 @@ const AttendanceHistoryScreen = () => {
 
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
-      <View onLayout={headerLayout}>
+      <View>
         <Header title="Attendance Logs" />
       </View>
 

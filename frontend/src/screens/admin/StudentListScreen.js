@@ -13,7 +13,6 @@ import {
   Image,
   ScrollView,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
@@ -21,28 +20,10 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api, { BASE_URL } from '../../services/api';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const StudentListScreen = ({ navigation }) => {
-  // On web, lock the screen to the exact viewport height (in px) so the FlatList
-  // gets a real bounded height and becomes the single, smooth scroller. Using a
-  // concrete pixel value (not a flex/`100vh` guess) is what reliably stops the
-  // "shakes but won't scroll" fight with the page-level (#root) scroller.
-  const { height: windowHeight } = useWindowDimensions();
-
-  // Everything above the list (header + filters) measured at runtime, so the list
-  // can be given an explicit pixel height instead of relying on flex:1 — the flex
-  // chain is broken by React Navigation's web card (the screen container never gets
-  // a definite height), which let the list stretch to its full content height and
-  // simply get clipped instead of scrolling.
-  const [listTop, setListTop] = useState(0);
-  const webListHeight =
-    Platform.OS === 'web' && listTop > 0 ? Math.max(windowHeight - listTop, 200) : null;
-
-  // In a flex column, the `flex` shorthand sets flex-basis, which governs the
-  // main-axis size and overrides `height` outright. Both `flex: 1` and `flex: 0`
-  // resolve to flex-basis: 0%, so every height we set here was being ignored.
-  // Pinning flex-basis to `auto` is what lets an explicit height actually apply.
-  const fixedHeight = (h) => ({ height: h, flexGrow: 0, flexShrink: 0, flexBasis: 'auto' });
+  const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -273,7 +254,7 @@ const StudentListScreen = ({ navigation }) => {
     <SafeAreaView
       style={[
         styles.safeArea,
-        Platform.OS === 'web' && { ...fixedHeight(windowHeight), overflow: 'hidden' },
+        screenStyle,
       ]}
     >
       <Header
@@ -292,10 +273,6 @@ const StudentListScreen = ({ navigation }) => {
 
       <View
         style={styles.searchFilterContainer}
-        onLayout={(e) => {
-          const { y, height } = e.nativeEvent.layout;
-          setListTop(Math.round(y + height));
-        }}
       >
         <Input
           placeholder="Search by name or mobile..."
@@ -343,18 +320,16 @@ const StudentListScreen = ({ navigation }) => {
           data={students}
           keyExtractor={(item) => item.id}
           renderItem={renderStudentItem}
-          style={[styles.flatList, webListHeight != null && fixedHeight(webListHeight)]}
+          style={[styles.flatList, scrollStyle]}
           contentContainerStyle={styles.listContainer}
           // On web, react-native-web moves the ScrollView's `style` prop onto the
           // RefreshControl wrapper instead of the actual scrolling element, so our
           // flex:1 / minHeight:0 never reaches the scroller and it can't bound
           // itself to scroll. Pull-to-refresh is a touch gesture that does nothing
           // with a mouse anyway, so skip it on web and keep the scroller intact.
-          refreshControl={
-            Platform.OS === 'web' ? undefined : (
+          refreshControl={webRefreshControl(
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
-            )
-          }
+          )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No students match the criteria.</Text>
@@ -534,7 +509,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
-    // web: exact viewport height is applied inline via useWindowDimensions.
   },
   loaderContainer: {
     flex: 1,

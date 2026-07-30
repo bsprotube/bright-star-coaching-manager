@@ -14,8 +14,11 @@ import { AuthContext } from '../../context/AuthContext';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
+import useWebScroll from '../../hooks/useWebScroll';
 
 const LoginScreen = ({ navigation }) => {
+  // No Header on this screen, so the scroller spans the full viewport.
+  const { screenStyle, scrollStyle } = useWebScroll();
   const { login } = useContext(AuthContext);
   
   const [phone, setPhone] = useState('');
@@ -64,13 +67,14 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, screenStyle]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView
+          style={scrollStyle}
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
         >
