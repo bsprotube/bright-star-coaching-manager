@@ -262,8 +262,47 @@ const updateCredentials = async (req, res, next) => {
   }
 };
 
-// @desc    Look up the security question for a phone number, as step 1 of the
-//          forgot-password flow
+// @desc    Report which recovery methods a phone number can use, as step 1 of the
+//          forgot-password flow. Accounts with an email can verify by emailed code
+//          (nothing to remember); accounts without one — most students and
+//          teachers — fall back to the security question.
+// @route   POST /api/auth/forgot-password/options
+// @access  Public
+const getRecoveryOptions = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      res.statusCode = 400;
+      throw new Error('Please provide a phone number');
+    }
+
+    const user = await User.findOne({ phone: phone.trim() });
+
+    // Deliberately identical error whether the account doesn't exist or simply has
+    // no recovery set up, so this can't be used to enumerate registered numbers.
+    if (!user || (!user.securityQuestion && !(user.email && isEmailConfigured()))) {
+      res.statusCode = 404;
+      throw new Error('No password recovery is set up for this number. Please contact your administrator.');
+    }
+
+    const emailAvailable = Boolean(user.email) && isEmailConfigured();
+
+    res.status(200).json({
+      success: true,
+      emailAvailable,
+      maskedEmail: emailAvailable
+        ? user.email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
+        : null,
+      questionAvailable: Boolean(user.securityQuestion),
+      question: user.securityQuestion || null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Look up the security question for a phone number (kept for the
+//          question-only recovery path)
 // @route   POST /api/auth/forgot-password/question
 // @access  Public
 const getSecurityQuestion = async (req, res, next) => {
@@ -292,16 +331,60 @@ const getSecurityQuestion = async (req, res, next) => {
   }
 };
 
-// @desc    Verify the security answer and set a new password in one step
+// @desc    Email a one-time code to the address on file, so a forgotten password
+//          can be reset without remembering a security answer.
+// @route   POST /api/auth/forgot-password/send-otp
+// @access  Public
+const sendForgotPasswordOtp = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      res.statusCode = 400;
+      throw new Error('Please provide a phone number');
+    }
+
+    if (!isEmailConfigured()) {
+      res.statusCode = 500;
+      throw new Error('Email verification is not set up on the server. Please contact your administrator.');
+    }
+
+    const user = await User.findOne({ phone: phone.trim() });
+
+    // Same generic error as getRecoveryOptions for the not-found / no-email cases.
+    if (!user || !user.email) {
+      res.statusCode = 404;
+      throw new Error('No email is registered for this number. Please contact your administrator.');
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    user.otpHash = otp; // pre('save') hook hashes this
+    user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
+    await user.save();
+
+    await sendOtpEmail(user.email, otp);
+
+    const maskedEmail = user.email.replace(/^(.{2}).*(@.*)$/, '$1***$2');
+
+    res.status(200).json({
+      success: true,
+      message: `Verification code sent to ${maskedEmail}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Set a new password after proving ownership — by emailed OTP or by the
+//          security answer, whichever the account has available.
 // @route   POST /api/auth/forgot-password/reset
 // @access  Public
 const resetPasswordWithSecurityAnswer = async (req, res, next) => {
   try {
-    const { phone, securityAnswer, newPassword } = req.body;
+    const { phone, securityAnswer, otp, newPassword } = req.body;
 
-    if (!phone || !securityAnswer || !newPassword) {
+    if (!phone || !newPassword || (!securityAnswer && !otp)) {
       res.statusCode = 400;
-      throw new Error('Please provide your phone number, the answer, and a new password');
+      throw new Error('Please provide your phone number, a new password, and either the emailed code or your security answer');
     }
 
     if (newPassword.length < 6) {
@@ -309,13 +392,33 @@ const resetPasswordWithSecurityAnswer = async (req, res, next) => {
       throw new Error('New password must be at least 6 characters');
     }
 
-    const user = await User.findOne({ phone: phone.trim() }).select('+securityAnswerHash');
-    if (!user || !(await user.matchSecurityAnswer(securityAnswer))) {
+    const user = await User.findOne({ phone: phone.trim() }).select(
+      '+securityAnswerHash +otpHash +otpExpires'
+    );
+
+    // Verify whichever proof was supplied, preferring the OTP. A wrong/expired one
+    // is reported the same way as an unknown phone number so this can't be used to
+    // probe which numbers are registered.
+    let verified = false;
+    if (user && otp) {
+      verified = await user.matchOtp(otp);
+    } else if (user && securityAnswer) {
+      verified = await user.matchSecurityAnswer(securityAnswer);
+    }
+
+    if (!verified) {
       res.statusCode = 401;
-      throw new Error('Phone number or answer is incorrect');
+      throw new Error(
+        otp
+          ? 'Verification code is incorrect or has expired. Please request a new one.'
+          : 'Phone number or answer is incorrect'
+      );
     }
 
     user.password = newPassword;
+    // Burn the code so it can't be replayed to reset the password again later.
+    user.otpHash = null;
+    user.otpExpires = null;
     await user.save();
 
     res.status(200).json({
@@ -333,6 +436,8 @@ module.exports = {
   getMe,
   requestOtp,
   updateCredentials,
+  getRecoveryOptions,
   getSecurityQuestion,
+  sendForgotPasswordOtp,
   resetPasswordWithSecurityAnswer,
 };

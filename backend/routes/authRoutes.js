@@ -6,7 +6,9 @@ const {
   getMe,
   requestOtp,
   updateCredentials,
+  getRecoveryOptions,
   getSecurityQuestion,
+  sendForgotPasswordOtp,
   resetPasswordWithSecurityAnswer,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
@@ -15,7 +17,9 @@ const { authLimiter } = require('../middleware/rateLimiters');
 router.post('/login', authLimiter, login);
 router.post('/register-admin', authLimiter, registerAdmin);
 
+router.post('/forgot-password/options', authLimiter, getRecoveryOptions);
 router.post('/forgot-password/question', authLimiter, getSecurityQuestion);
+router.post('/forgot-password/send-otp', authLimiter, sendForgotPasswordOtp);
 router.post('/forgot-password/reset', authLimiter, resetPasswordWithSecurityAnswer);
 
 router.get('/me', protect, getMe);
