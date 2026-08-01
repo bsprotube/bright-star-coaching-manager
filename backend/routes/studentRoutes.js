@@ -10,6 +10,9 @@ const {
   deleteStudent,
 } = require('../controllers/studentController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { adminWriteLimiter } = require('../middleware/rateLimiters');
+const { validate } = require('../middleware/validate');
+const { studentSchemas } = require('../middleware/schemas');
 
 // Multer storage engine configuration
 const storage = multer.diskStorage({
@@ -43,15 +46,29 @@ const upload = multer({
 
 router.use(protect);
 
+// Validation runs after multer on the multipart routes, since the body fields
+// don't exist until multer has parsed the form.
 router
   .route('/')
-  .get(authorize('admin', 'teacher'), getStudents)
-  .post(authorize('admin'), upload.single('photo'), createStudent);
+  .get(authorize('admin', 'teacher'), validate(studentSchemas.list), getStudents)
+  .post(
+    authorize('admin'),
+    adminWriteLimiter,
+    upload.single('photo'),
+    validate(studentSchemas.create),
+    createStudent
+  );
 
 router
   .route('/:id')
-  .get(authorize('admin', 'teacher', 'student'), getStudentById)
-  .put(authorize('admin'), upload.single('photo'), updateStudent)
-  .delete(authorize('admin'), deleteStudent);
+  .get(authorize('admin', 'teacher', 'student'), validate(studentSchemas.byId), getStudentById)
+  .put(
+    authorize('admin'),
+    adminWriteLimiter,
+    upload.single('photo'),
+    validate(studentSchemas.update),
+    updateStudent
+  )
+  .delete(authorize('admin'), adminWriteLimiter, validate(studentSchemas.idParam), deleteStudent);
 
 module.exports = router;

@@ -1,11 +1,13 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddleware');
+const { globalLimiter } = require('./middleware/rateLimiters');
 const { finalizeAllExpiredCodes } = require('./controllers/attendanceController');
 const { generateDuesForAllActiveStudents } = require('./services/billingService');
 
@@ -22,6 +24,20 @@ const app = express();
 // IP-based logic) to see each client's real IP instead of treating every request
 // as coming from the same address.
 app.set('trust proxy', 1);
+
+// Secure HTTP headers (HSTS, nosniff, frameguard, referrer policy, and friends).
+// crossOriginResourcePolicy is relaxed to cross-origin because student photos are
+// served from /uploads and loaded by the frontend on a different origin; helmet's
+// same-origin default would block those images.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// Baseline rate limit for the whole API. Auth endpoints get a much tighter limit
+// of their own on top of this (see routes/authRoutes).
+app.use('/api', globalLimiter);
 
 // CORS allowlist. Browser clients (web frontend) send an Origin header that must
 // match this list — native mobile requests and server-to-server calls (curl,

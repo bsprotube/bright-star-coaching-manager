@@ -7,12 +7,32 @@ const {
   triggerBilling,
 } = require('../controllers/feeController');
 const { protect, authorize } = require('../middleware/authMiddleware');
+const { adminWriteLimiter } = require('../middleware/rateLimiters');
+const { validate } = require('../middleware/validate');
+const { feeSchemas } = require('../middleware/schemas');
 
 router.use(protect);
 
-router.get('/dues', authorize('admin'), getDues);
-router.get('/student/:studentId', authorize('admin', 'student'), getStudentFees);
-router.post('/payment', authorize('admin'), recordPayment);
-router.post('/trigger-billing', authorize('admin'), triggerBilling);
+router.get('/dues', authorize('admin'), validate(feeSchemas.dues), getDues);
+router.get(
+  '/student/:studentId',
+  authorize('admin', 'student'),
+  validate(feeSchemas.studentIdParam),
+  getStudentFees
+);
+router.post(
+  '/payment',
+  authorize('admin'),
+  adminWriteLimiter,
+  validate(feeSchemas.payment),
+  recordPayment
+);
+router.post(
+  '/trigger-billing',
+  authorize('admin'),
+  adminWriteLimiter,
+  validate(feeSchemas.triggerBilling),
+  triggerBilling
+);
 
 module.exports = router;

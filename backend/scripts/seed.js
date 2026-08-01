@@ -12,8 +12,33 @@ const StudentDetail = require('../models/StudentDetail');
 const FeeRecord = require('../models/FeeRecord');
 const { generateDuesUpToDateForStudent } = require('../services/billingService');
 
+// This script WIPES every user, batch, student and fee record before recreating a
+// demo set with well-known passwords. That is fine on a dev machine and
+// catastrophic anywhere real, so it refuses to run against a production
+// environment, and otherwise requires an explicit --confirm flag so it can never
+// be triggered by a stray command or an accidental npm script.
+const assertSafeToSeed = () => {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Refusing to seed: NODE_ENV is "production". This script deletes all data.');
+    process.exit(1);
+  }
+
+  if (!process.argv.includes('--confirm')) {
+    // Show only the host, never the full URI — it can carry the database password.
+    const target = String(process.env.MONGO_URI || '').replace(/^(mongodb(\+srv)?:\/\/)([^@]*@)?/, '$1');
+    console.error('This will DELETE ALL users, batches, students and fee records in:');
+    console.error(`  ${target}`);
+    console.error('');
+    console.error('Re-run with --confirm if that is really what you want:');
+    console.error('  node scripts/seed.js --confirm');
+    process.exit(1);
+  }
+};
+
 const seedData = async () => {
   try {
+    assertSafeToSeed();
+
     // Connect to database
     await connectDB();
 

@@ -2,7 +2,7 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  // Log to console for dev
+  // Full detail goes to the server log, never to the client.
   console.error(err.stack || err);
 
   // Mongoose bad ObjectId
@@ -26,11 +26,25 @@ const errorHandler = (err, req, res, next) => {
     res.statusCode = 400;
   }
 
-  res.status(res.statusCode === 200 ? 500 : res.statusCode || 500).json({
+  const status = res.statusCode === 200 ? 500 : res.statusCode || 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // 4xx messages are written for the user by the controllers, so they're safe to
+  // return as-is. A 5xx means something unexpected broke, and that message comes
+  // from a library or the driver — it can carry hostnames, file paths or query
+  // fragments — so in production it's replaced with a generic one.
+  const body = {
     success: false,
-    message: error.message || 'Server Error',
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
-  });
+    message: isProduction && status >= 500
+      ? 'Something went wrong. Please try again.'
+      : error.message || 'Server Error',
+  };
+
+  if (!isProduction) {
+    body.stack = err.stack;
+  }
+
+  res.status(status).json(body);
 };
 
 module.exports = { errorHandler };

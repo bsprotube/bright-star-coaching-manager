@@ -30,7 +30,9 @@ const protect = async (req, res, next) => {
 
       next();
     } catch (error) {
-      console.error(error);
+      // Message only — the full error object on a failed verify is noise, and
+      // logging it wholesale risks spilling request details into the log.
+      console.error(`Auth token rejected: ${error.message}`);
       return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
     }
   }
