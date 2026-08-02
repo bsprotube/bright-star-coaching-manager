@@ -13,11 +13,14 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const { adminWriteLimiter } = require('../middleware/rateLimiters');
 const { validate } = require('../middleware/validate');
 const { studentSchemas } = require('../middleware/schemas');
+const { UPLOADS_DIR } = require('../config/uploads');
 
 // Multer storage engine configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, './uploads/'); // files stored in uploads/ folder
+    // Same configurable location the static handler serves from, so a hosted
+    // deployment can move both to a persistent disk with one env var.
+    cb(null, UPLOADS_DIR);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

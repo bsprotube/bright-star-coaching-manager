@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const path = require('path');
+const crypto = require('crypto');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -12,11 +13,24 @@ const StudentDetail = require('../models/StudentDetail');
 const FeeRecord = require('../models/FeeRecord');
 const { generateDuesUpToDateForStudent } = require('../services/billingService');
 
+// Seed passwords used to be written into this file, which meant the demo admin,
+// teacher and student credentials were published in the repository — anyone who
+// read it could log into any deployment that had been seeded. They are now
+// generated fresh on each run (or taken from the environment, so a developer who
+// reseeds often can keep stable local logins) and printed once, at the end.
+const generatePassword = () => crypto.randomBytes(9).toString('base64url'); // 12 chars
+
+const SEED_PASSWORDS = {
+  admin: process.env.SEED_ADMIN_PASSWORD || generatePassword(),
+  teacher: process.env.SEED_TEACHER_PASSWORD || generatePassword(),
+  student: process.env.SEED_STUDENT_PASSWORD || generatePassword(),
+};
+
 // This script WIPES every user, batch, student and fee record before recreating a
-// demo set with well-known passwords. That is fine on a dev machine and
-// catastrophic anywhere real, so it refuses to run against a production
-// environment, and otherwise requires an explicit --confirm flag so it can never
-// be triggered by a stray command or an accidental npm script.
+// demo set. That is fine on a dev machine and catastrophic anywhere real, so it
+// refuses to run against a production environment, and otherwise requires an
+// explicit --confirm flag so it can never be triggered by a stray command or an
+// accidental npm script.
 const assertSafeToSeed = () => {
   if (process.env.NODE_ENV === 'production') {
     console.error('Refusing to seed: NODE_ENV is "production". This script deletes all data.');
@@ -66,7 +80,7 @@ const seedData = async () => {
     await User.create({
       name: 'Bright Star Admin',
       phone: '9999999999',
-      password: 'adminpassword',
+      password: SEED_PASSWORDS.admin,
       role: 'admin',
     });
 
@@ -75,7 +89,7 @@ const seedData = async () => {
     await User.create({
       name: 'Instructor Baruah',
       phone: '8888888888',
-      password: 'teacherpassword',
+      password: SEED_PASSWORDS.teacher,
       role: 'teacher',
     });
 
@@ -84,7 +98,7 @@ const seedData = async () => {
     const studentUser = await User.create({
       name: 'Rahul Sarma',
       phone: '7777777777',
-      password: 'studentpassword',
+      password: SEED_PASSWORDS.student,
       role: 'student',
     });
 
@@ -106,10 +120,10 @@ const seedData = async () => {
     console.log('----------------------------------------------------');
     console.log('Database Seeding Completed Successfully!');
     console.log('----------------------------------------------------');
-    console.log('Default Login Credentials:');
-    console.log('1. Admin:   Phone: 9999999999 | Password: adminpassword');
-    console.log('2. Teacher: Phone: 8888888888 | Password: teacherpassword');
-    console.log('3. Student: Phone: 7777777777 | Password: studentpassword');
+    console.log('Generated login credentials — copy these now, they are not stored anywhere:');
+    console.log(`1. Admin:   Phone: 9999999999 | Password: ${SEED_PASSWORDS.admin}`);
+    console.log(`2. Teacher: Phone: 8888888888 | Password: ${SEED_PASSWORDS.teacher}`);
+    console.log(`3. Student: Phone: 7777777777 | Password: ${SEED_PASSWORDS.student}`);
     console.log('----------------------------------------------------');
 
     process.exit(0);

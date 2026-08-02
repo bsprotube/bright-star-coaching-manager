@@ -3,11 +3,11 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
-const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddleware');
 const { globalLimiter } = require('./middleware/rateLimiters');
+const { UPLOADS_DIR } = require('./config/uploads');
 const { finalizeAllExpiredCodes } = require('./controllers/attendanceController');
 const { generateDuesForAllActiveStudents } = require('./services/billingService');
 
@@ -44,15 +44,23 @@ app.use('/api', globalLimiter);
 // health checks) don't send one at all and are always let through, since CORS is
 // a browser-enforced protection, not a server-side auth mechanism.
 //
-// Local Expo web dev servers are always allowed. Add production frontend URLs
-// (e.g. a Netlify domain) via the FRONTEND_URLS env var (comma-separated) once
-// one exists — no code change needed later.
+// Production frontend URLs come from the FRONTEND_URLS env var (comma-separated).
+// Local Expo dev servers are allowed too, but only outside production — in a
+// deployed environment there is no reason to trust a localhost origin, and leaving
+// it allowed would let a page running on a visitor's own machine call this API.
 const DEV_ORIGINS = ['http://localhost:8081', 'http://localhost:19006', 'http://127.0.0.1:8081'];
+const isProduction = process.env.NODE_ENV === 'production';
 const configuredOrigins = (process.env.FRONTEND_URLS || '')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
-const allowedOrigins = [...DEV_ORIGINS, ...configuredOrigins];
+const allowedOrigins = isProduction ? configuredOrigins : [...DEV_ORIGINS, ...configuredOrigins];
+
+if (isProduction && allowedOrigins.length === 0) {
+  console.warn(
+    'WARNING: NODE_ENV=production but FRONTEND_URLS is not set — every browser origin will be rejected by CORS.'
+  );
+}
 
 app.use(
   cors({
@@ -75,11 +83,12 @@ app.use(express.urlencoded({ extended: true }));
 // unfiltered on the login endpoint.
 app.use(mongoSanitize());
 
-// Create 'uploads' folder dynamically on start if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-  console.log('Created uploads directory');
+// Create the uploads folder on start if it doesn't exist. Its location is
+// configurable (see config/uploads) so a hosted deployment can point it at a
+// persistent disk instead of the container's ephemeral filesystem.
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  console.log(`Created uploads directory: ${UPLOADS_DIR}`);
 }
 
 // Serve static files (student photos). These aren't behind login — profile photos
@@ -100,7 +109,7 @@ app.use(
     res.setHeader('X-Content-Type-Options', 'nosniff');
     next();
   },
-  express.static(uploadsDir)
+  express.static(UPLOADS_DIR)
 );
 
 // Mount Route Routers

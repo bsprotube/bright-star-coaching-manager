@@ -4,11 +4,26 @@ import { getItem, deleteItem } from '../utils/storage';
 // ===============================
 // Backend API base URL
 // ===============================
-// Render service was deleted — pointed at the local backend (LOCAL MongoDB,
-// separate data from whatever production ends up being) until a new host exists.
-// Swap back to a live URL once one exists:
-//   export const BASE_URL = 'https://<new-host>/api';
-export const BASE_URL = 'http://localhost:5000/api';
+// Set EXPO_PUBLIC_API_URL (in frontend/.env locally, or as a build environment
+// variable on the host) to point the app at a backend, e.g.
+//   EXPO_PUBLIC_API_URL=https://your-backend.example.com/api
+//
+// Expo inlines EXPO_PUBLIC_* variables at build time, so the value is baked into
+// whatever bundle gets shipped. The localhost fallback below therefore only
+// applies to development builds: in a production build a missing variable throws
+// instead, because shipping a bundle that points at "localhost" would give every
+// user an app that silently fails to reach any server.
+const DEV_FALLBACK_URL = 'http://localhost:5000/api';
+const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
+
+if (!configuredUrl && !__DEV__) {
+  throw new Error(
+    'EXPO_PUBLIC_API_URL is not set. Set it before building for production — ' +
+      'otherwise the app would ship pointing at localhost.'
+  );
+}
+
+export const BASE_URL = configuredUrl || DEV_FALLBACK_URL;
 export const API_URL = BASE_URL;
 
 const api = axios.create({
