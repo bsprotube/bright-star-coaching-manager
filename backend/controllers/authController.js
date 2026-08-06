@@ -1,9 +1,17 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { JWT_SECRET, JWT_EXPIRE } = require('../config/jwt');
 const { isEmailConfigured, sendOtpEmail } = require('../services/emailService');
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
+// Six-digit codes, drawn from the OS entropy pool rather than Math.random().
+// Math.random() is a fast non-cryptographic PRNG: its internal state can be
+// reconstructed from a handful of observed outputs, which would let anyone who
+// can trigger a few OTPs (their own account is enough) predict the next code
+// issued to someone else's.
+const generateOtp = () => String(crypto.randomInt(100000, 1000000));
 
 // Helper: Generate JWT token
 const generateToken = (id) => {
@@ -54,9 +62,24 @@ const login = async (req, res, next) => {
 
 // @desc    Register initial admin
 // @route   POST /api/auth/register-admin
-// @access  Public (Should be blocked or secured in real prod after first run)
+// @access  Public, but only while ALLOW_ADMIN_REGISTRATION is enabled
+//
+// This is a bootstrap endpoint: it only ever fires on a database with no admin
+// in it. That "no admin yet" guard alone is a race, though — on a fresh deploy
+// there is a window between the server accepting traffic and the real admin
+// being created, and whoever posts to this URL first owns the instance. So it
+// stays off unless explicitly switched on for the one request that needs it.
+//
+// The env check is repeated from the route's own guard on purpose: this handler
+// can mint an admin account, so it shouldn't depend on a caller having wired the
+// middleware up correctly.
 const registerAdmin = async (req, res, next) => {
   try {
+    if (process.env.ALLOW_ADMIN_REGISTRATION !== 'true') {
+      res.statusCode = 404;
+      throw new Error('Not Found');
+    }
+
     const { name, phone, email, password } = req.body;
 
     // Check if any admin exists
@@ -135,7 +158,7 @@ const requestOtp = async (req, res, next) => {
       throw new Error('Please set an email address in Account Settings first, then try again.');
     }
 
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otp = generateOtp();
     user.otpHash = otp; // pre('save') hook hashes this
     user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();
@@ -356,7 +379,7 @@ const sendForgotPasswordOtp = async (req, res, next) => {
       throw new Error('No email is registered for this number. Please contact your administrator.');
     }
 
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otp = generateOtp();
     user.otpHash = otp; // pre('save') hook hashes this
     user.otpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
     await user.save();

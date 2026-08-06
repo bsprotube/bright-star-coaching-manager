@@ -15,6 +15,26 @@ const authLimiter = rateLimit({
   },
 });
 
+// Companion to authLimiter, keyed on the phone number being targeted rather than
+// on the caller's address. authLimiter alone caps how fast one machine can guess,
+// but the thing actually worth protecting is a single account: a six-digit OTP or
+// a security answer is guessable in far fewer than a million tries, and an
+// attacker spreading requests across many IPs would never trip a per-IP limit
+// while hammering one victim's number. Requests without a phone in the body are
+// skipped entirely, so this never falls back to keying on an IP address.
+const phoneAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => typeof req.body?.phone !== 'string' || !req.body.phone.trim(),
+  keyGenerator: (req) => `phone:${req.body.phone.trim()}`,
+  message: {
+    success: false,
+    message: 'Too many attempts for this account. Please wait a few minutes and try again.',
+  },
+});
+
 // Baseline limit for the whole API, to blunt scraping and accidental request
 // storms. Deliberately loose: a teacher working through a class register fires a
 // lot of legitimate calls in a short burst, so this is set well above normal use
@@ -44,4 +64,4 @@ const adminWriteLimiter = rateLimit({
   },
 });
 
-module.exports = { authLimiter, globalLimiter, adminWriteLimiter };
+module.exports = { authLimiter, phoneAuthLimiter, globalLimiter, adminWriteLimiter };
