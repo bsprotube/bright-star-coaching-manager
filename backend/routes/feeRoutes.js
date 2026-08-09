@@ -4,6 +4,7 @@ const {
   getDues,
   getStudentFees,
   recordPayment,
+  collectFromStudent,
   updateFeeAmount,
   triggerBilling,
 } = require('../controllers/feeController');
@@ -28,6 +29,16 @@ router.post(
   validate(feeSchemas.payment),
   recordPayment
 );
+// Sits before '/:feeRecordId/amount' only for readability — the two paths differ
+// in method and shape, so ordering isn't load-bearing here.
+router.post(
+  '/collect',
+  authorize('admin'),
+  adminWriteLimiter,
+  validate(feeSchemas.collect),
+  collectFromStudent
+);
+
 router.put(
   '/:feeRecordId/amount',
   authorize('admin'),

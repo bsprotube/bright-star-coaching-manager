@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,24 +10,52 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Modal,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
+import Button from '../../components/Button';
 import api, { BASE_URL } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
+import { AuthContext } from '../../context/AuthContext';
+
+const PAYMENT_METHODS = [
+  { id: 'cash', label: '💵 Cash' },
+  { id: 'upi', label: '📱 UPI' },
+  { id: 'card', label: '💳 Card' },
+  { id: 'bank_transfer', label: '🏛️ Bank' },
+];
 
 const ManualAttendanceScreen = ({ route, navigation }) => {
   const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const { batchId, batchName } = route.params;
 
+  // This screen is mounted by both the admin and teacher navigators. The roster
+  // shows everyone's dues either way, but only an admin can take money — the
+  // collect endpoint is admin-only, so showing a teacher the button would just
+  // hand them a 403.
+  const { user } = useContext(AuthContext);
+  const isAdmin = user?.role === 'admin';
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const [date, setDate] = useState('');
   const [students, setStudents] = useState([]);
   const [submittingId, setSubmittingId] = useState(null); // track which student is updating
+
+  // Collecting fees without leaving the register: a student who turns up with
+  // last month's fees can be settled at the same moment they're marked present,
+  // instead of the admin having to remember and go hunting in Fee Management.
+  const [collectFor, setCollectFor] = useState(null);
+  const [collectAmount, setCollectAmount] = useState('');
+  const [collectMethod, setCollectMethod] = useState('cash');
+  const [collectError, setCollectError] = useState('');
+  const [collecting, setCollecting] = useState(false);
 
   useEffect(() => {
     const today = new Date().toISOString().substring(0, 10);
@@ -88,6 +116,54 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleOpenCollect = (student) => {
+    setCollectFor(student);
+    setCollectAmount(String(student.pendingFeeAmount));
+    setCollectMethod('cash');
+    setCollectError('');
+  };
+
+  const handleCollect = async () => {
+    setCollectError('');
+    const numAmount = Number(collectAmount);
+
+    if (!collectAmount || !Number.isFinite(numAmount) || numAmount <= 0) {
+      setCollectError('Please enter a valid amount');
+      return;
+    }
+    if (numAmount > collectFor.pendingFeeAmount) {
+      setCollectError(`Max allowed: ₹${collectFor.pendingFeeAmount}`);
+      return;
+    }
+
+    setCollecting(true);
+    try {
+      const res = await api.post('/fees/collect', {
+        studentId: collectFor.studentId,
+        amount: numAmount,
+        paymentMethod: collectMethod,
+      });
+
+      if (res.data.success) {
+        const { remainingDues, monthsSettled } = res.data.data;
+        const msg =
+          remainingDues > 0
+            ? `₹${numAmount} collected across ${monthsSettled.length} month(s). ₹${remainingDues} still due.`
+            : `₹${numAmount} collected. All dues cleared.`;
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Payment recorded', msg);
+
+        setCollectFor(null);
+        fetchRoster(); // dues on the roster are now stale
+      }
+    } catch (error) {
+      console.error('Collect fee error', error);
+      setCollectError(error.response?.data?.message || 'Could not record the payment');
+    } finally {
+      setCollecting(false);
+    }
+  };
+
   const renderStudentRow = ({ item }) => {
     const isUpdating = submittingId === item.studentId;
 
@@ -108,9 +184,21 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
             <Text style={styles.studentName} numberOfLines={1}>{item.name}</Text>
             <Text style={styles.rollText}>Roll: {item.rollNumber}</Text>
             {item.pendingFeeAmount > 0 ? (
-              <Text style={styles.pendingFeeText}>
-                💸 ₹{item.pendingFeeAmount} due ({item.pendingFeeMonths} month{item.pendingFeeMonths > 1 ? 's' : ''})
-              </Text>
+              isAdmin ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleOpenCollect(item)}
+                  style={styles.pendingFeeTapTarget}
+                >
+                  <Text style={styles.pendingFeeTextTappable}>
+                    💸 ₹{item.pendingFeeAmount} due ({item.pendingFeeMonths} month{item.pendingFeeMonths > 1 ? 's' : ''}) › Collect
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.pendingFeeText}>
+                  💸 ₹{item.pendingFeeAmount} due ({item.pendingFeeMonths} month{item.pendingFeeMonths > 1 ? 's' : ''})
+                </Text>
+              )
             ) : null}
           </View>
 
@@ -237,6 +325,92 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
           }
         />
       )}
+
+      {/* Collect fees without leaving the register */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={Boolean(collectFor)}
+        onRequestClose={() => setCollectFor(null)}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            {collectFor && (
+              <>
+                <Text style={styles.modalTitle}>Collect Fee</Text>
+
+                <Card style={styles.modalSummaryCard}>
+                  <Text style={styles.summaryLabel}>
+                    Student: <Text style={styles.summaryVal}>{collectFor.name}</Text>
+                  </Text>
+                  <Text style={styles.summaryLabel}>
+                    Total Due:{' '}
+                    <Text style={[styles.summaryVal, { color: COLORS.error }]}>
+                      ₹{collectFor.pendingFeeAmount}
+                    </Text>{' '}
+                    across {collectFor.pendingFeeMonths} month
+                    {collectFor.pendingFeeMonths > 1 ? 's' : ''}
+                  </Text>
+                </Card>
+
+                <ScrollView style={styles.modalForm} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.modalHelpText}>
+                    The amount is applied to the oldest unpaid month first. Pay less
+                    than the total to clear only part of the arrears.
+                  </Text>
+
+                  <Input
+                    label="Amount Collected (₹) *"
+                    value={collectAmount}
+                    onChangeText={setCollectAmount}
+                    placeholder="Enter amount received"
+                    keyboardType="numeric"
+                    error={collectError}
+                  />
+
+                  <Text style={styles.payMethodLabel}>Payment Channel *</Text>
+                  <View style={styles.payMethodGrid}>
+                    {PAYMENT_METHODS.map((m) => (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[
+                          styles.payMethodChip,
+                          collectMethod === m.id && styles.payMethodChipActive,
+                        ]}
+                        onPress={() => setCollectMethod(m.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.payMethodChipText,
+                            collectMethod === m.id && styles.payMethodChipTextActive,
+                          ]}
+                        >
+                          {m.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={styles.modalActions}>
+                    <Button
+                      title="Cancel"
+                      type="secondary"
+                      onPress={() => setCollectFor(null)}
+                      style={styles.modalActionBtn}
+                    />
+                    <Button
+                      title="Record Payment"
+                      onPress={handleCollect}
+                      loading={collecting}
+                      style={[styles.modalActionBtn, { marginLeft: 12 }]}
+                    />
+                  </View>
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -327,6 +501,100 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     marginTop: 3,
+  },
+  // Same line, but underlined and padded out into a finger-sized target once it's
+  // an admin looking at it, so it reads as something you can act on rather than a
+  // label that happens to be tappable.
+  pendingFeeTapTarget: {
+    marginTop: 3,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  pendingFeeTextTappable: {
+    color: COLORS.error,
+    fontSize: 10,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: SPACING.md,
+    maxHeight: '85%',
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  modalSummaryCard: {
+    marginBottom: 14,
+    paddingVertical: 12,
+  },
+  summaryLabel: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    marginBottom: 4,
+  },
+  summaryVal: {
+    color: COLORS.text,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  modalForm: {
+    flexGrow: 0,
+  },
+  modalHelpText: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  payMethodLabel: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    marginBottom: 8,
+  },
+  payMethodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  payMethodChip: {
+    borderWidth: 1,
+    borderColor: COLORS.surfaceLight,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  payMethodChipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary + '20',
+  },
+  payMethodChipText: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+  },
+  payMethodChipTextActive: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  modalActionBtn: {
+    flex: 1,
   },
   loader: {
     width: 120,

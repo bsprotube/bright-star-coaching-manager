@@ -156,6 +156,89 @@ const recordPayment = async (req, res, next) => {
   }
 };
 
+// @desc    Take money from a student without first hunting for the right invoice.
+//          Fees are owed per billing cycle, but nobody pays that way — a student
+//          hands over "two months' fees" in one go. The amount is spread across
+//          their unpaid cycles oldest first, so the arrears clear in the order they
+//          were incurred and a part payment lands on the oldest month rather than
+//          leaving a trail of half-paid ones.
+// @route   POST /api/fees/collect
+// @access  Private (Admin)
+const collectFromStudent = async (req, res, next) => {
+  try {
+    const { studentId, amount, paymentMethod, transactionId } = req.body;
+
+    // Compare the NUMBER, never the raw input: "abc" <= 0 is false in JS, which is
+    // how a non-numeric amount once turned amountPaid into NaN and corrupted an
+    // invoice permanently.
+    const numericAmount = Number(amount);
+    if (!studentId || amount === undefined || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      res.statusCode = 400;
+      throw new Error('Please specify a student and a positive payment amount');
+    }
+
+    // Oldest first. billingMonth is a zero-padded "YYYY-MM" string, so a plain
+    // lexicographic sort is already chronological.
+    const outstanding = await FeeRecord.find({
+      studentId,
+      status: { $in: ['pending', 'partial'] },
+    }).sort({ billingMonth: 1 });
+
+    if (outstanding.length === 0) {
+      res.statusCode = 400;
+      throw new Error('This student has no pending fees');
+    }
+
+    const totalOutstanding = outstanding.reduce(
+      (sum, rec) => sum + (rec.amountDue - rec.amountPaid),
+      0
+    );
+    if (numericAmount > totalOutstanding) {
+      res.statusCode = 400;
+      throw new Error(`Amount exceeds total pending dues. Max allowed: ${totalOutstanding}`);
+    }
+
+    let remaining = numericAmount;
+    const monthsSettled = [];
+
+    for (const record of outstanding) {
+      if (remaining <= 0) break;
+
+      const owed = record.amountDue - record.amountPaid;
+      const applied = Math.min(owed, remaining);
+
+      record.payments.push({
+        amount: applied,
+        paymentMethod: paymentMethod || 'cash',
+        transactionId,
+        recordedBy: req.user._id,
+      });
+      record.amountPaid += applied;
+      record.status = record.amountPaid >= record.amountDue ? 'paid' : 'partial';
+      await record.save();
+
+      remaining -= applied;
+      monthsSettled.push({
+        billingMonth: record.billingMonth,
+        applied,
+        status: record.status,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Payment of ${numericAmount} recorded across ${monthsSettled.length} month(s)`,
+      data: {
+        amountCollected: numericAmount,
+        remainingDues: totalOutstanding - numericAmount,
+        monthsSettled,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Correct the amount owed on a single invoice — a fee entered wrongly, a
 //          discount agreed after the fact, or a waiver (set it to 0). Payments
 //          already recorded are left untouched; only what the student owes moves.
@@ -244,6 +327,7 @@ module.exports = {
   getDues,
   getStudentFees,
   recordPayment,
+  collectFromStudent,
   updateFeeAmount,
   triggerBilling,
 };

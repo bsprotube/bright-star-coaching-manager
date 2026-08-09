@@ -195,6 +195,15 @@ const feeSchemas = {
     }),
   },
 
+  collect: {
+    body: Joi.object({
+      studentId: objectId.required(),
+      amount: Joi.number().greater(0).max(10000000).required(),
+      paymentMethod: Joi.string().valid('cash', 'upi', 'card', 'bank_transfer'),
+      transactionId: Joi.string().trim().max(100).allow('', null),
+    }),
+  },
+
   // Zero is allowed here, unlike a payment: writing the amount down to nothing is
   // how a fee gets waived outright.
   updateAmount: {
