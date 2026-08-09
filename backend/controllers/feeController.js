@@ -156,6 +156,71 @@ const recordPayment = async (req, res, next) => {
   }
 };
 
+// @desc    Correct the amount owed on a single invoice — a fee entered wrongly, a
+//          discount agreed after the fact, or a waiver (set it to 0). Payments
+//          already recorded are left untouched; only what the student owes moves.
+// @route   PUT /api/fees/:feeRecordId/amount
+// @access  Private (Admin)
+const updateFeeAmount = async (req, res, next) => {
+  try {
+    const { feeRecordId } = req.params;
+    const { amountDue } = req.body;
+
+    // Same care as recordPayment: compare the NUMBER, never the raw input, so a
+    // non-numeric value can't slip through a comparison and corrupt the invoice.
+    // null and "" need rejecting explicitly rather than relying on a range check:
+    // Number(null) and Number("") are both 0, and 0 is a legitimate amount here
+    // (it's how a fee is waived), so a missing value would otherwise be read as a
+    // deliberate waiver and silently wipe out what the student owes.
+    const numericAmount = Number(amountDue);
+    if (
+      amountDue === undefined ||
+      amountDue === null ||
+      amountDue === '' ||
+      !Number.isFinite(numericAmount) ||
+      numericAmount < 0
+    ) {
+      res.statusCode = 400;
+      throw new Error('Please provide a valid amount (0 or more)');
+    }
+
+    const feeRecord = await FeeRecord.findById(feeRecordId);
+    if (!feeRecord) {
+      res.statusCode = 404;
+      throw new Error('Fee invoice record not found');
+    }
+
+    // Dropping the amount below what's already been collected would imply a refund,
+    // which this app has no way to record — the payment history would no longer add
+    // up. Waiving the rest of a part-paid invoice is still possible: set the amount
+    // to exactly what was paid.
+    if (numericAmount < feeRecord.amountPaid) {
+      res.statusCode = 400;
+      throw new Error(
+        `This student has already paid ${feeRecord.amountPaid}. The amount cannot be set lower than that.`
+      );
+    }
+
+    feeRecord.amountDue = numericAmount;
+    feeRecord.status =
+      feeRecord.amountPaid >= numericAmount
+        ? 'paid'
+        : feeRecord.amountPaid > 0
+        ? 'partial'
+        : 'pending';
+
+    await feeRecord.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Fee amount updated successfully',
+      data: feeRecord,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Manually force a billing catch-up for all active students
 //          (normal operation no longer needs this — getDues already auto-catches-up —
 //          but it's kept as an admin "force refresh" option)
@@ -179,5 +244,6 @@ module.exports = {
   getDues,
   getStudentFees,
   recordPayment,
+  updateFeeAmount,
   triggerBilling,
 };

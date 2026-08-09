@@ -204,15 +204,28 @@ const createStudent = async (req, res, next) => {
       throw new Error('Please fill in all required fields');
     }
 
-    // Check if phone already registered
-    const phoneExists = await User.findOne({ phone });
-    if (phoneExists) {
+    // Removing a student only deactivates them (see deleteStudent) and their phone
+    // stays on the account, so a plain "does this number exist" check would retire
+    // that number forever — the admin could never enrol the same person again, which
+    // is exactly what happens when someone leaves and later rejoins. A deactivated
+    // student is therefore re-enrolled onto their original account rather than
+    // rejected: same user, new batch and roll number, with their old attendance,
+    // marks and fee history still attached instead of stranded on a hidden record.
+    // Only a number that currently belongs to someone reachable — an active student,
+    // or any teacher/admin — is a genuine clash.
+    const existingUser = await User.findOne({ phone });
+    if (existingUser && (existingUser.isActive || existingUser.role !== 'student')) {
       res.statusCode = 400;
       throw new Error('Phone number is already registered');
     }
+    const reEnrolling = Boolean(existingUser);
 
-    // Check if roll number already exists
-    const rollExists = await StudentDetail.findOne({ rollNumber });
+    // A re-enrolling student already owns a StudentDetail row, so their own record
+    // must not count as the roll number being taken.
+    const rollQuery = reEnrolling
+      ? { rollNumber, userId: { $ne: existingUser._id } }
+      : { rollNumber };
+    const rollExists = await StudentDetail.findOne(rollQuery);
     if (rollExists) {
       res.statusCode = 400;
       throw new Error('Roll number is already assigned');
@@ -231,24 +244,37 @@ const createStudent = async (req, res, next) => {
       photoUrl = `/uploads/${req.file.filename}`;
     }
 
-    // 2. Create User
-    // NOTE: email has a unique index in the User schema. If we stored an empty
-    // string "" for every student who leaves email blank, MongoDB treats those
-    // as duplicate values and the second such student fails with E11000.
-    // Passing `undefined` instead makes Mongoose omit the field entirely, so it
-    // never collides with anyone else's blank email.
-    const user = await User.create({
-      name,
-      phone,
-      email: email && email.trim() ? email.trim() : undefined,
-      password,
-      role: 'student',
-    });
+    // 2. Create the User, or revive the deactivated one this phone belongs to.
+    // createdUserId is only set on the create path: it drives the rollback below,
+    // and deleting a revived account would destroy a real student's history.
+    let user;
+    if (reEnrolling) {
+      existingUser.name = name;
+      existingUser.email = email && email.trim() ? email.trim() : undefined;
+      existingUser.password = password; // pre('save') hook re-hashes it
+      existingUser.isActive = true;
+      await existingUser.save();
+      user = existingUser;
+    } else {
+      // NOTE: email has a unique index in the User schema. If we stored an empty
+      // string "" for every student who leaves email blank, MongoDB treats those
+      // as duplicate values and the second such student fails with E11000.
+      // Passing `undefined` instead makes Mongoose omit the field entirely, so it
+      // never collides with anyone else's blank email.
+      user = await User.create({
+        name,
+        phone,
+        email: email && email.trim() ? email.trim() : undefined,
+        password,
+        role: 'student',
+      });
+      createdUserId = user._id;
+    }
 
-    createdUserId = user._id;
-
-    // 3. Create StudentDetail
-    await StudentDetail.create({
+    // 3. Create the StudentDetail, or overwrite the one a re-enrolling student
+    // still has. Their photo is only replaced when a new one was actually
+    // uploaded, so re-enrolling without picking a file doesn't blank it out.
+    const detailFields = {
       userId: user._id,
       rollNumber,
       parentPhone,
@@ -257,7 +283,16 @@ const createStudent = async (req, res, next) => {
       monthlyFee,
       admissionFee,
       batchId,
-      photoUrl,
+    };
+    if (photoUrl || !reEnrolling) {
+      detailFields.photoUrl = photoUrl;
+    }
+
+    await StudentDetail.findOneAndUpdate({ userId: user._id }, detailFields, {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+      runValidators: true,
     });
 
     // 4. Generate the joining fee (and backfill any cycles already elapsed,
@@ -266,7 +301,9 @@ const createStudent = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Student registered successfully',
+      message: reEnrolling
+        ? 'Student re-registered successfully. Their previous attendance, marks and fee history have been kept.'
+        : 'Student registered successfully',
       data: {
         id: user._id,
         name,

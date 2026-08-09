@@ -4,6 +4,7 @@ const {
   getDues,
   getStudentFees,
   recordPayment,
+  updateFeeAmount,
   triggerBilling,
 } = require('../controllers/feeController');
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -27,6 +28,14 @@ router.post(
   validate(feeSchemas.payment),
   recordPayment
 );
+router.put(
+  '/:feeRecordId/amount',
+  authorize('admin'),
+  adminWriteLimiter,
+  validate(feeSchemas.updateAmount),
+  updateFeeAmount
+);
+
 router.post(
   '/trigger-billing',
   authorize('admin'),

@@ -43,6 +43,14 @@ const FeeManagementScreen = ({ navigation }) => {
   
   const [amountError, setAmountError] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  // Correcting what a student owes for a cycle — a fee entered wrongly, a discount,
+  // or a waiver (0). Separate from logging a payment: this moves the bill, not the
+  // money received.
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editAmount, setEditAmount] = useState('');
+  const [editError, setEditError] = useState('');
+  const [submittingEdit, setSubmittingEdit] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
 
   // Initialize current month YYYY-MM
@@ -124,6 +132,53 @@ const FeeManagementScreen = ({ navigation }) => {
     }
   };
 
+  const handleOpenEditAmount = (record) => {
+    setSelectedRecord(record);
+    setEditAmount(String(record.amountDue));
+    setEditError('');
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateAmount = async () => {
+    setEditError('');
+    const numAmount = Number(editAmount);
+
+    if (editAmount === '' || isNaN(numAmount) || numAmount < 0) {
+      setEditError('Please enter a valid amount (0 or more)');
+      return;
+    }
+
+    // Mirrors the server's rule: the app can record payments but not refunds, so
+    // an amount below what's already been collected would leave the ledger unable
+    // to balance. Caught here too, to explain it before a round trip.
+    if (numAmount < selectedRecord.amountPaid) {
+      setEditError(`Already paid ₹${selectedRecord.amountPaid} — cannot set below that`);
+      return;
+    }
+
+    setSubmittingEdit(true);
+    try {
+      const res = await api.put(`/fees/${selectedRecord.feeRecordId}/amount`, {
+        amountDue: numAmount,
+      });
+      if (res.data.success) {
+        const msg =
+          numAmount === 0
+            ? 'Fee waived for this month'
+            : `Fee amount updated to ₹${numAmount}`;
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Success', msg);
+        setEditModalVisible(false);
+        fetchDues();
+      }
+    } catch (error) {
+      console.error('Update fee amount error', error);
+      setEditError(error.response?.data?.message || 'Could not update the amount');
+    } finally {
+      setSubmittingEdit(false);
+    }
+  };
+
   const handleTriggerBilling = () => {
     Alert.alert(
       'Trigger Billing Cycle',
@@ -190,23 +245,43 @@ const FeeManagementScreen = ({ navigation }) => {
         
         <View style={styles.cardFooter}>
           <Text style={styles.paidSummary}>Paid: ₹{item.amountPaid} / ₹{item.amountDue}</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.payBtn}
-            onPress={() => handleOpenPayment(item)}
-          >
-            <Text style={styles.payBtnText}>Log Payment</Text>
-          </TouchableOpacity>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.editBtn}
+              onPress={() => handleOpenEditAmount(item)}
+            >
+              <Text style={styles.editBtnText}>Edit Fee</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.payBtn}
+              onPress={() => handleOpenPayment(item)}
+            >
+              <Text style={styles.payBtnText}>Log Payment</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Card>
     );
   };
 
+  // The last two years of cycles, most recent first so the current month — the one
+  // selected on open — sits at the near end of the strip instead of off-screen.
+  // Listing only the calendar year meant that every January the previous year's
+  // unpaid dues became unreachable, and it also offered months that haven't
+  // happened yet, which are always empty. Anything older than this is still
+  // reachable through an individual student's fee history.
   const months = [];
-  const currentYear = new Date().getFullYear();
-  for (let m = 1; m <= 12; m++) {
-    const format = `${currentYear}-${m.toString().padStart(2, '0')}`;
-    months.push(format);
+  {
+    const cursor = new Date();
+    cursor.setDate(1);
+    for (let i = 0; i < 24; i++) {
+      months.push(
+        `${cursor.getFullYear()}-${(cursor.getMonth() + 1).toString().padStart(2, '0')}`
+      );
+      cursor.setMonth(cursor.getMonth() - 1);
+    }
   }
 
   const paymentMethodsList = [
@@ -360,6 +435,63 @@ const FeeManagementScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Fee Amount Correction Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            {selectedRecord && (
+              <>
+                <Text style={styles.modalTitle}>Edit Fee Amount</Text>
+
+                <Card style={styles.modalSummaryCard}>
+                  <Text style={styles.summaryCardLabel}>Student Name: <Text style={styles.summaryCardVal}>{selectedRecord.name}</Text></Text>
+                  <Text style={styles.summaryCardLabel}>Billing Cycle: <Text style={styles.summaryCardVal}>{billingMonth}</Text></Text>
+                  <Text style={styles.summaryCardLabel}>Current Amount: <Text style={styles.summaryCardVal}>₹{selectedRecord.amountDue}</Text></Text>
+                  <Text style={styles.summaryCardLabel}>Already Paid: <Text style={styles.summaryCardVal}>₹{selectedRecord.amountPaid}</Text></Text>
+                </Card>
+
+                <ScrollView style={styles.modalForm} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.editHelpText}>
+                    Change what this student owes for this month — to fix a wrong
+                    amount, or to give a discount. Enter 0 to waive the fee entirely.
+                    Payments already recorded are not affected.
+                  </Text>
+
+                  <Input
+                    label="Fee Amount (₹) *"
+                    value={editAmount}
+                    onChangeText={setEditAmount}
+                    placeholder="Enter the correct amount"
+                    keyboardType="numeric"
+                    error={editError}
+                  />
+
+                  <View style={styles.modalActions}>
+                    <Button
+                      title="Cancel"
+                      type="secondary"
+                      onPress={() => setEditModalVisible(false)}
+                      style={styles.actionBtn}
+                    />
+                    <Button
+                      title="Save Amount"
+                      onPress={handleUpdateAmount}
+                      loading={submittingEdit}
+                      style={[styles.actionBtn, { marginLeft: 12 }]}
+                    />
+                  </View>
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -501,6 +633,10 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: TYPOGRAPHY.sizes.xs,
   },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   payBtn: {
     backgroundColor: COLORS.success,
     borderRadius: 6,
@@ -511,6 +647,27 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: TYPOGRAPHY.sizes.xs,
     fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  // Outlined rather than filled: correcting a bill is the rarer, more deliberate
+  // action, and shouldn't compete with "Log Payment" for the thumb.
+  editBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.textMuted,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginRight: 8,
+  },
+  editBtnText: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  editHelpText: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    marginBottom: 14,
+    lineHeight: 18,
   },
   emptyContainer: {
     alignItems: 'center',

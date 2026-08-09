@@ -195,6 +195,15 @@ const feeSchemas = {
     }),
   },
 
+  // Zero is allowed here, unlike a payment: writing the amount down to nothing is
+  // how a fee gets waived outright.
+  updateAmount: {
+    params: Joi.object({ feeRecordId: objectId.required() }),
+    body: Joi.object({
+      amountDue: Joi.number().min(0).max(10000000).required(),
+    }),
+  },
+
   triggerBilling: {
     body: Joi.object({ month: monthString }),
   },
