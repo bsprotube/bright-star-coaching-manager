@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import { AuthContext } from '../../context/AuthContext';
@@ -37,6 +38,12 @@ const StudentDashboard = () => {
   
   const [submitting, setSubmitting] = useState(false);
 
+  // Outstanding fees, summarised for the banner at the top of this screen. Students
+  // rarely open the Fees tab on their own, so arrears used to go unnoticed until
+  // someone chased them in person; putting the figure on the screen they do open
+  // every day is the whole point of showing it here.
+  const [feeSummary, setFeeSummary] = useState(null);
+
   const loadStudentState = async () => {
     try {
       // 1. Fetch student detailed profile
@@ -55,7 +62,28 @@ const StudentDashboard = () => {
         }
       }
 
-      // 3. Fetch check-in history to verify if checked in today
+      // 3. Summarise anything still owed. The oldest unpaid cycle is the one worth
+      // naming: it's the date the student is already past, not the next one coming.
+      const feeRes = await api.get(`/fees/student/${user.id}`);
+      if (feeRes.data.success) {
+        const unpaid = (feeRes.data.data || []).filter(
+          (r) => r.status === 'pending' || r.status === 'partial'
+        );
+        if (unpaid.length > 0) {
+          const totalDue = unpaid.reduce((sum, r) => sum + (r.amountDue - r.amountPaid), 0);
+          const oldest = unpaid.reduce((a, b) => (a.billingMonth <= b.billingMonth ? a : b));
+          setFeeSummary({
+            totalDue,
+            monthsPending: unpaid.length,
+            oldestDueDate: oldest.dueDate,
+            anyPartial: unpaid.some((r) => r.status === 'partial'),
+          });
+        } else {
+          setFeeSummary(null);
+        }
+      }
+
+      // 4. Fetch check-in history to verify if checked in today
       const historyRes = await api.get(`/attendance/history/student/${user.id}`);
       if (historyRes.data.success) {
         const todayStr = new Date().toISOString().substring(0, 10);
@@ -132,6 +160,49 @@ const StudentDashboard = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
           )}
         >
+          {/* Outstanding fees — deliberately the first thing on the screen, and
+              deliberately loud. Tapping anywhere on it opens the full ledger.
+              There is no online payment in this app: fees are handed over at the
+              centre, so the banner says where to pay rather than offering a
+              button that couldn't do anything. */}
+          {feeSummary ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.feeBanner}
+              onPress={() => navigation.navigate('Fees')}
+            >
+              <View style={styles.feeBannerTop}>
+                <View style={styles.feeBannerIcon}>
+                  <Text style={styles.feeBannerIconText}>💰</Text>
+                </View>
+                <View style={styles.feeBannerTextCol}>
+                  <Text style={styles.feeBannerLabel}>FEES DUE</Text>
+                  <Text style={styles.feeBannerAmount}>
+                    ₹{feeSummary.totalDue.toLocaleString('en-IN')}
+                  </Text>
+                  <Text style={styles.feeBannerMeta}>
+                    {feeSummary.monthsPending} month
+                    {feeSummary.monthsPending > 1 ? 's' : ''} pending
+                    {feeSummary.oldestDueDate
+                      ? ` · since ${new Date(feeSummary.oldestDueDate).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}`
+                      : ''}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.feeBannerFooter}>
+                <Text style={styles.feeBannerFooterText}>
+                  Please pay at the coaching centre
+                </Text>
+                <Text style={styles.feeBannerLink}>View Details →</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
           {/* Roster detail info header */}
           <View style={styles.greetingHeader}>
             <Text style={styles.greetText}>Hello, {user?.name}</Text>
@@ -210,6 +281,72 @@ const styles = StyleSheet.create({
   container: {
     padding: SPACING.md,
     paddingBottom: 80,
+  },
+  // Sized to be the loudest thing on the screen: a tinted red slab with the figure
+  // set large enough to read at a glance, so an unpaid balance is impossible to
+  // scroll past on the way to the check-in box.
+  feeBanner: {
+    backgroundColor: COLORS.error + '1A',
+    borderWidth: 1.5,
+    borderColor: COLORS.error,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+  },
+  feeBannerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  feeBannerIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.error + '2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  feeBannerIconText: {
+    fontSize: 24,
+  },
+  feeBannerTextCol: {
+    flex: 1,
+  },
+  feeBannerLabel: {
+    color: COLORS.error,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    letterSpacing: 1.2,
+  },
+  feeBannerAmount: {
+    color: COLORS.error,
+    fontSize: 36,
+    fontWeight: 'bold',
+    lineHeight: 44,
+  },
+  feeBannerMeta: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+  },
+  feeBannerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.error + '33',
+  },
+  feeBannerFooterText: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    flex: 1,
+  },
+  feeBannerLink: {
+    color: COLORS.error,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    marginLeft: 10,
   },
   greetingHeader: {
     marginBottom: 20,
