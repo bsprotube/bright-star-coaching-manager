@@ -30,9 +30,23 @@ const FeeManagementScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dues, setDues] = useState([]);
-  
+
   // Billing cycle month filter
   const [billingMonth, setBillingMonth] = useState('');
+
+  // Client-side filter over the current month's dues — the list is small enough
+  // (one coaching centre's worth of pending fees) that there's no need to round-trip
+  // to the server for this.
+  const [searchQuery, setSearchQuery] = useState('');
+  const filteredDues = searchQuery.trim()
+    ? dues.filter((d) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          d.name?.toLowerCase().includes(q) ||
+          d.phone?.includes(searchQuery.trim())
+        );
+      })
+    : dues;
   
   // Payment Modal states
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -335,6 +349,13 @@ const FeeManagementScreen = ({ navigation }) => {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        <Input
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search by name or mobile number"
+          style={styles.searchInput}
+        />
       </View>
 
       {loading ? (
@@ -343,7 +364,7 @@ const FeeManagementScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={dues}
+          data={filteredDues}
           keyExtractor={(item) => item.feeRecordId}
           renderItem={renderDueItem}
           style={scrollStyle}
@@ -356,7 +377,11 @@ const FeeManagementScreen = ({ navigation }) => {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Awesome! No outstanding dues for this month.</Text>
+              <Text style={styles.emptyText}>
+                {searchQuery.trim()
+                  ? 'No student matches that search.'
+                  : 'Awesome! No outstanding dues for this month.'}
+              </Text>
             </View>
           }
         />
@@ -537,6 +562,10 @@ const styles = StyleSheet.create({
   },
   monthScroll: {
     flex: 1,
+  },
+  searchInput: {
+    marginTop: 10,
+    marginBottom: 0,
   },
   monthChip: {
     backgroundColor: COLORS.surfaceLight,
