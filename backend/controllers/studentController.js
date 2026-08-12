@@ -437,10 +437,44 @@ const deleteStudent = async (req, res, next) => {
   }
 };
 
+// @desc    Let a student replace their own profile photo. A narrow sibling of
+//          updateStudent rather than a reuse of it: that endpoint also accepts
+//          roll number, batch and fee amounts, which must stay admin-only — this
+//          one touches nothing but photoUrl, so a student calling it can't
+//          reassign themselves to a cheaper batch by the same door.
+// @route   PUT /api/students/me/photo
+// @access  Private (Student)
+const updateOwnPhoto = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      res.statusCode = 400;
+      throw new Error('Please choose a photo to upload');
+    }
+
+    const detail = await StudentDetail.findOne({ userId: req.user._id });
+    if (!detail) {
+      res.statusCode = 404;
+      throw new Error('Student profile not found');
+    }
+
+    detail.photoUrl = `/uploads/${req.file.filename}`;
+    await detail.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Photo updated successfully',
+      data: { photoUrl: detail.photoUrl },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getStudents,
   getStudentById,
   createStudent,
   updateStudent,
+  updateOwnPhoto,
   deleteStudent,
 };

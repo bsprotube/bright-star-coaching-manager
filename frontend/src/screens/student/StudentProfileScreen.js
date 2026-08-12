@@ -9,7 +9,10 @@ import {
   RefreshControl,
   Image,
   Alert,
+  TouchableOpacity,
+  Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
@@ -25,6 +28,7 @@ const StudentProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -49,6 +53,89 @@ const StudentProfileScreen = ({ navigation }) => {
     setRefreshing(true);
     fetchProfile();
   }, []);
+
+  // Sends the photo straight to the server on selection rather than staging it
+  // for a later "Save" — this screen has no other editable field, so a separate
+  // save step would only be one more tap between picking a photo and it landing.
+  const uploadPhoto = async (uri) => {
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      if (Platform.OS === 'web') {
+        // expo-image-picker returns a blob:/data: URI on web; the RN-style
+        // {uri, name, type} object below only resolves to a real file on native.
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        formData.append('photo', blob, 'profile_photo.jpg');
+      } else {
+        const filename = uri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image';
+        formData.append('photo', { uri, name: filename, type });
+      }
+
+      const res = await api.put('/students/me/photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        setProfile((prev) => ({ ...prev, photoUrl: res.data.data.photoUrl }));
+      }
+    } catch (error) {
+      console.error('Photo upload error', error);
+      const msg = error.response?.data?.message || 'Could not upload the photo';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Upload failed', msg);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleSelectFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Photo library access is required to upload a photo');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      uploadPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Camera access is required to take a photo');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets?.length > 0) {
+      uploadPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleChangePhoto = () => {
+    // react-native-web's Alert.alert can't show multiple tappable buttons, so on
+    // web this goes straight to the file picker instead of offering a choice.
+    if (Platform.OS === 'web') {
+      handleSelectFromGallery();
+      return;
+    }
+    Alert.alert('Profile Photo', 'Choose a source:', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Choose from Gallery', onPress: handleSelectFromGallery },
+      { text: 'Take Photo', onPress: handleTakePhoto },
+    ]);
+  };
 
   const renderProfileDetail = (label, value) => (
     <View style={styles.detailRow}>
@@ -77,18 +164,36 @@ const StudentProfileScreen = ({ navigation }) => {
         >
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
-            {profile?.photoUrl ? (
-              <Image
-                source={{ uri: `${BASE_URL.replace('/api', '')}${profile.photoUrl}` }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>
-                  {profile?.name ? profile.name.substring(0, 2).toUpperCase() : 'BSC'}
-                </Text>
-              </View>
-            )}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={handleChangePhoto}
+              disabled={uploadingPhoto}
+              style={styles.avatarTapTarget}
+            >
+              {profile?.photoUrl ? (
+                <Image
+                  source={{ uri: `${BASE_URL.replace('/api', '')}${profile.photoUrl}` }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>
+                    {profile?.name ? profile.name.substring(0, 2).toUpperCase() : 'BSC'}
+                  </Text>
+                </View>
+              )}
+
+              {uploadingPhoto ? (
+                <View style={styles.avatarOverlay}>
+                  <ActivityIndicator size="small" color={COLORS.text} />
+                </View>
+              ) : (
+                <View style={styles.avatarEditBadge}>
+                  <Text style={styles.avatarEditBadgeText}>✎</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.changePhotoHint}>Tap photo to change</Text>
             <Text style={styles.studentName}>{profile?.name}</Text>
             <Text style={styles.studentRoll}>Roll Number: {profile?.rollNumber}</Text>
           </View>
@@ -150,12 +255,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 20,
   },
+  avatarTapTarget: {
+    width: 96,
+    height: 96,
+    marginBottom: 4,
+  },
   avatar: {
     width: 96,
     height: 96,
     borderRadius: 48,
     backgroundColor: COLORS.surfaceLight,
-    marginBottom: 12,
     borderWidth: 2.5,
     borderColor: COLORS.primaryLight,
   },
@@ -166,12 +275,48 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   avatarText: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.sizes.xl,
     fontWeight: 'bold',
+  },
+  // A small pencil badge rather than an overlay across the whole photo, so the
+  // photo itself — the thing being checked before tapping it — stays fully
+  // visible.
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2,
+    borderColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarEditBadgeText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 48,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  changePhotoHint: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginBottom: 8,
   },
   studentName: {
     color: COLORS.text,

@@ -7,6 +7,7 @@ const {
   getStudentById,
   createStudent,
   updateStudent,
+  updateOwnPhoto,
   deleteStudent,
 } = require('../controllers/studentController');
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -61,6 +62,10 @@ router
     validate(studentSchemas.create),
     createStudent
   );
+
+// Must be declared before '/:id' — Express would otherwise match "me" as the
+// :id param and route this to getStudentById/updateStudent instead.
+router.put('/me/photo', authorize('student'), upload.single('photo'), updateOwnPhoto);
 
 router
   .route('/:id')
