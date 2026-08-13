@@ -331,12 +331,19 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
                       </View>
                     </View>
                     <View style={[styles.dataCell, { width: FEE_COL_WIDTH }]}>
-                      <Text style={[
-                        styles.summaryText,
-                        { color: student.pendingFeesCount > 0 ? COLORS.error : COLORS.textMuted },
-                      ]}>
-                        {student.pendingFeesCount}
-                      </Text>
+                      {student.pendingFeesAmount > 0 ? (
+                        <>
+                          <Text style={[styles.summaryText, { color: COLORS.error }]}>
+                            ₹{student.pendingFeesAmount.toLocaleString('en-IN')}
+                          </Text>
+                          <Text style={styles.pendingMonthsText}>
+                            {student.pendingFeesCount} month
+                            {student.pendingFeesCount > 1 ? 's' : ''}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={[styles.summaryText, { color: COLORS.success }]}>–</Text>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -657,6 +664,14 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 11,
     fontWeight: 'bold',
+  },
+  // The month count stays, in smaller muted type under the amount: the rupee
+  // figure answers "chase this student?", the month count answers "how far
+  // behind are they?".
+  pendingMonthsText: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    marginTop: 1,
   },
   summaryBar: {
     flexDirection: 'row',

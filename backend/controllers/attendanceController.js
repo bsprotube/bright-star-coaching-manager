@@ -432,7 +432,15 @@ const getBatchMonthlyRegister = async (req, res, next) => {
       const studentFees = feesByStudent[sid] || [];
       const admissionFeeRecord = studentFees[0]; // earliest billingMonth = the admission cycle
       const admissionFeeStatus = admissionFeeRecord ? admissionFeeRecord.status : 'pending';
-      const pendingFeesCount = studentFees.filter((f) => f.status === 'pending' || f.status === 'partial').length;
+      const unpaidFees = studentFees.filter((f) => f.status === 'pending' || f.status === 'partial');
+      const pendingFeesCount = unpaidFees.length;
+      // What's actually owed, not just how many invoices are open. "2" tells whoever
+      // is reading the register nothing about whether to chase this student; ₹1,600
+      // does. Part-paid cycles count only for their remaining balance.
+      const pendingFeesAmount = unpaidFees.reduce(
+        (sum, f) => sum + (f.amountDue - f.amountPaid),
+        0
+      );
 
       return {
         studentId: sid,
@@ -441,6 +449,7 @@ const getBatchMonthlyRegister = async (req, res, next) => {
         photoUrl: s.photoUrl,
         admissionFeeStatus,
         pendingFeesCount,
+        pendingFeesAmount,
         days,
         presentCount,
         absentCount,
