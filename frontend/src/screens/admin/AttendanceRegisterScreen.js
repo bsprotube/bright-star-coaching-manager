@@ -18,7 +18,7 @@ import * as Sharing from 'expo-sharing';
 import { getItem } from '../../utils/storage';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import Header from '../../components/Header';
-import api, { API_URL, BASE_URL } from '../../services/api';
+import api, { API_URL, UPLOADS_ORIGIN } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -290,7 +290,7 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
                     <View style={[styles.dataCell, styles.nameCell, { width: NAME_COL_WIDTH }]}>
                       {student.photoUrl ? (
                         <Image
-                          source={{ uri: `${BASE_URL.replace('/api', '')}${student.photoUrl}` }}
+                          source={{ uri: `${UPLOADS_ORIGIN}${student.photoUrl}` }}
                           style={styles.avatar}
                         />
                       ) : (

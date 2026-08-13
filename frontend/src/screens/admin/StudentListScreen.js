@@ -19,7 +19,7 @@ import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
-import api, { BASE_URL } from '../../services/api';
+import api, { UPLOADS_ORIGIN } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const StudentListScreen = ({ navigation }) => {
@@ -209,7 +209,7 @@ const StudentListScreen = ({ navigation }) => {
       <View style={styles.studentRow}>
         {item.photoUrl ? (
           <Image
-            source={{ uri: `${BASE_URL.replace('/api', '')}${item.photoUrl}` }}
+            source={{ uri: `${UPLOADS_ORIGIN}${item.photoUrl}` }}
             style={styles.avatar}
           />
         ) : (
@@ -361,7 +361,7 @@ const StudentListScreen = ({ navigation }) => {
                   <View style={styles.profileHeader}>
                     {studentProfile.profile.photoUrl ? (
                       <Image
-                        source={{ uri: `${BASE_URL.replace('/api', '')}${studentProfile.profile.photoUrl}` }}
+                        source={{ uri: `${UPLOADS_ORIGIN}${studentProfile.profile.photoUrl}` }}
                         style={styles.largeAvatar}
                       />
                     ) : (

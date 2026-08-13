@@ -18,7 +18,7 @@ import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
-import api, { BASE_URL } from '../../services/api';
+import api, { UPLOADS_ORIGIN } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const StudentProfileScreen = ({ navigation }) => {
@@ -79,6 +79,9 @@ const StudentProfileScreen = ({ navigation }) => {
       });
       if (res.data.success) {
         setProfile((prev) => ({ ...prev, photoUrl: res.data.data.photoUrl }));
+        const msg = 'Your photo has been updated.';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Photo saved', msg);
       }
     } catch (error) {
       console.error('Photo upload error', error);
@@ -172,7 +175,7 @@ const StudentProfileScreen = ({ navigation }) => {
             >
               {profile?.photoUrl ? (
                 <Image
-                  source={{ uri: `${BASE_URL.replace('/api', '')}${profile.photoUrl}` }}
+                  source={{ uri: `${UPLOADS_ORIGIN}${profile.photoUrl}` }}
                   style={styles.avatar}
                 />
               ) : (
@@ -189,11 +192,13 @@ const StudentProfileScreen = ({ navigation }) => {
                 </View>
               ) : (
                 <View style={styles.avatarEditBadge}>
-                  <Text style={styles.avatarEditBadgeText}>✎</Text>
+                  <Text style={styles.avatarEditBadgeText}>📷</Text>
                 </View>
               )}
             </TouchableOpacity>
-            <Text style={styles.changePhotoHint}>Tap photo to change</Text>
+            <Text style={styles.changePhotoHint}>
+              {uploadingPhoto ? 'Uploading…' : '📷 Tap photo to change'}
+            </Text>
             <Text style={styles.studentName}>{profile?.name}</Text>
             <Text style={styles.studentRoll}>Roll Number: {profile?.rollNumber}</Text>
           </View>
@@ -256,22 +261,22 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   avatarTapTarget: {
-    width: 96,
-    height: 96,
-    marginBottom: 4,
+    width: 120,
+    height: 120,
+    marginBottom: 6,
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: COLORS.surfaceLight,
     borderWidth: 2.5,
     borderColor: COLORS.primaryLight,
   },
   avatarPlaceholder: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
@@ -281,26 +286,24 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xl,
     fontWeight: 'bold',
   },
-  // A small pencil badge rather than an overlay across the whole photo, so the
-  // photo itself — the thing being checked before tapping it — stays fully
-  // visible.
+  // A camera badge rather than an overlay across the whole photo, so the photo
+  // itself — the thing being checked before tapping it — stays fully visible.
+  // Sized to read as a button at arm's length on a phone.
   avatarEditBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.primary,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarEditBadgeText: {
-    color: COLORS.text,
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontSize: 18,
   },
   avatarOverlay: {
     position: 'absolute',
@@ -308,15 +311,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 48,
+    borderRadius: 60,
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   changePhotoHint: {
-    color: COLORS.textMuted,
-    fontSize: 10,
-    marginBottom: 8,
+    color: COLORS.primaryLight,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    marginBottom: 10,
   },
   studentName: {
     color: COLORS.text,

@@ -19,7 +19,7 @@ import Header from '../../components/Header';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
-import api, { BASE_URL } from '../../services/api';
+import api, { UPLOADS_ORIGIN } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -172,7 +172,7 @@ const ManualAttendanceScreen = ({ route, navigation }) => {
         <View style={styles.rosterRow}>
           {item.photoUrl ? (
             <Image
-              source={{ uri: `${BASE_URL.replace('/api', '')}${item.photoUrl}` }}
+              source={{ uri: `${UPLOADS_ORIGIN}${item.photoUrl}` }}
               style={styles.avatar}
             />
           ) : (

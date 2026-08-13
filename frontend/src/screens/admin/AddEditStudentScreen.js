@@ -19,7 +19,7 @@ import Header from '../../components/Header';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
-import api, { BASE_URL } from '../../services/api';
+import api, { UPLOADS_ORIGIN } from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
 const AddEditStudentScreen = ({ route, navigation }) => {
@@ -70,7 +70,7 @@ const AddEditStudentScreen = ({ route, navigation }) => {
               setAddress(p.address);
               setMonthlyFee(String(p.monthlyFee));
               setAdmissionFee(String(p.admissionFee));
-              setPhotoUri(p.photoUrl ? `${BASE_URL.replace('/api', '')}${p.photoUrl}` : '');
+              setPhotoUri(p.photoUrl ? `${UPLOADS_ORIGIN}${p.photoUrl}` : '');
 
               const matchBatch = res.data.data.find(b => b._id === p.batchId);
               if (matchBatch) setSelectedBatch(matchBatch);

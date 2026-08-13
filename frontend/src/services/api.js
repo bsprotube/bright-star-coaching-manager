@@ -26,6 +26,17 @@ if (!configuredUrl && !__DEV__) {
 export const BASE_URL = configuredUrl || DEV_FALLBACK_URL;
 export const API_URL = BASE_URL;
 
+// The origin to prefix onto a server-relative path like "/uploads/xyz.jpg" (photo
+// URLs come back that way from the API, not as full URLs). Every screen used to
+// compute this itself as `BASE_URL.replace('/api', '')`, which silently broke the
+// day the API moved onto api.brightstarcoachingcentre.in: String.replace(string)
+// only touches the FIRST match, and "/api" occurs earlier — inside "//api." at the
+// start of the URL — than the trailing "/api" it was meant to strip, so every photo
+// on the site 404'd behind a mangled URL. Anchoring the strip to the end of the
+// string, and doing it once here, makes that whole bug class impossible to repeat
+// per-screen.
+export const UPLOADS_ORIGIN = BASE_URL.replace(/\/api\/?$/, '');
+
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 60000, // Render's free tier "spins down" after inactivity, and the
