@@ -1,6 +1,10 @@
 const Batch = require('../models/Batch');
 const StudentDetail = require('../models/StudentDetail');
 
+// Escapes regex special characters so a batch name like "Class (A)" is matched
+// literally instead of being interpreted as a regex pattern.
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @desc    Get all batches with student count
 // @route   GET /api/batches
 // @access  Private (Admin, Teacher)
@@ -76,10 +80,12 @@ const createBatch = async (req, res, next) => {
       throw new Error('Please add a batch name');
     }
 
-    const batchExists = await Batch.findOne({ name });
+    const batchExists = await Batch.findOne({
+      name: { $regex: `^${escapeRegex(name.trim())}$`, $options: 'i' },
+    });
     if (batchExists) {
       res.statusCode = 400;
-      throw new Error('A batch with this name already exists');
+      throw new Error(`A batch named "${batchExists.name}" already exists`);
     }
 
     const batch = await Batch.create({
@@ -113,11 +119,13 @@ const updateBatch = async (req, res, next) => {
     }
 
     // If changing name, ensure uniqueness
-    if (name && name !== batch.name) {
-      const nameExists = await Batch.findOne({ name });
+    if (name && name.trim().toLowerCase() !== batch.name.toLowerCase()) {
+      const nameExists = await Batch.findOne({
+        name: { $regex: `^${escapeRegex(name.trim())}$`, $options: 'i' },
+      });
       if (nameExists) {
         res.statusCode = 400;
-        throw new Error('A batch with this name already exists');
+        throw new Error(`A batch named "${nameExists.name}" already exists`);
       }
     }
 
