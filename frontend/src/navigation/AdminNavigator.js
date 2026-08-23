@@ -15,6 +15,7 @@ import MarksEntryScreen from '../screens/admin/MarksEntryScreen';
 import PerformanceScreen from '../screens/admin/PerformanceScreen';
 import AccountSettingsScreen from '../screens/admin/AccountSettingsScreen';
 import ManualAttendanceScreen from '../screens/teacher/ManualAttendanceScreen';
+import StudyMaterialsScreen from '../screens/admin/StudyMaterialsScreen';
 
 const Stack = createStackNavigator();
 
@@ -34,6 +35,7 @@ const AdminNavigator = () => {
       <Stack.Screen name="Performance" component={PerformanceScreen} />
       <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
       <Stack.Screen name="ManualAttendance" component={ManualAttendanceScreen} />
+      <Stack.Screen name="StudyMaterials" component={StudyMaterialsScreen} />
     </Stack.Navigator>
   );
 };

@@ -8,6 +8,7 @@ import StudentDashboard from '../screens/student/StudentDashboard';
 import AttendanceHistoryScreen from '../screens/student/AttendanceHistoryScreen';
 import FeeStatusScreen from '../screens/student/FeeStatusScreen';
 import StudentProfileScreen from '../screens/student/StudentProfileScreen';
+import StudyMaterialsScreen from '../screens/admin/StudyMaterialsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,6 +26,7 @@ const StudentNavigator = () => {
           if (route.name === 'Home') iconGlyph = '🏠';
           else if (route.name === 'History') iconGlyph = '📅';
           else if (route.name === 'Fees') iconGlyph = '💳';
+          else if (route.name === 'Notes') iconGlyph = '📚';
           else if (route.name === 'Profile') iconGlyph = '👤';
 
           return (
@@ -38,6 +40,7 @@ const StudentNavigator = () => {
       <Tab.Screen name="Home" component={StudentDashboard} />
       <Tab.Screen name="History" component={AttendanceHistoryScreen} />
       <Tab.Screen name="Fees" component={FeeStatusScreen} />
+      <Tab.Screen name="Notes" component={StudyMaterialsScreen} />
       <Tab.Screen name="Profile" component={StudentProfileScreen} />
     </Tab.Navigator>
   );

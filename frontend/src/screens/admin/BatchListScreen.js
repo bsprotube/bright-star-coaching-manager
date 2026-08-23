@@ -222,6 +222,12 @@ const BatchListScreen = ({ navigation }) => {
             <Text style={styles.registerBtnText}>📋 Register</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={styles.notesBtn}
+            onPress={() => navigation.navigate('StudyMaterials', { batchId: item._id, batchName: item.name })}
+          >
+            <Text style={styles.notesBtnText}>📚 Notes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.editBtn}
             onPress={() => handleOpenEditModal(item)}
           >
@@ -457,6 +463,20 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 8,
+  },
+  notesBtn: {
+    backgroundColor: COLORS.warning + '26',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  notesBtnText: {
+    color: COLORS.warning,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: TYPOGRAPHY.weights.medium,
   },
   editBtn: {
     backgroundColor: COLORS.surfaceLight,

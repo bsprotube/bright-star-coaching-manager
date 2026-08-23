@@ -120,6 +120,7 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/fees', require('./routes/feeRoutes'));
 app.use('/api/tests', require('./routes/testRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/study-materials', require('./routes/studyMaterialRoutes'));
 
 // Root Status Check Route
 app.get('/', (req, res) => {

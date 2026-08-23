@@ -321,6 +321,36 @@ const reportSchemas = {
   },
 };
 
+// ---------- study materials ----------
+const studyMaterialSchemas = {
+  createFolder: {
+    body: Joi.object({
+      name: Joi.string().trim().min(1).max(100).required(),
+      batchId: objectId.required(),
+      parentFolderId: objectId,
+    }),
+  },
+
+  listContents: {
+    query: Joi.object({
+      batchId: objectId.required(),
+      parentFolderId: objectId,
+    }),
+  },
+
+  uploadFile: {
+    body: Joi.object({
+      folderId: objectId.required(),
+      batchId: objectId.required(),
+      name: Joi.string().trim().max(150).allow('', null),
+    }),
+  },
+
+  idParam: {
+    params: Joi.object({ id: objectId.required() }),
+  },
+};
+
 module.exports = {
   authSchemas,
   studentSchemas,
@@ -329,4 +359,5 @@ module.exports = {
   feeSchemas,
   testSchemas,
   reportSchemas,
+  studyMaterialSchemas,
 };
