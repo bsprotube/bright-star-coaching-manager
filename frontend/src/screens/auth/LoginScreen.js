@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,55 @@ const LoginScreen = ({ navigation }) => {
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Chrome fires this on the *installable* site itself (before any account
+  // exists to check role for), then suppresses its own mini-infobar once
+  // preventDefault() is called — the saved event is what a later prompt() call
+  // replays. iOS Safari never fires it at all; there is no programmatic install
+  // API there, only the manual Share-sheet route, so that path is detected
+  // separately and shown different instructions instead of a button that would
+  // do nothing.
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.navigator?.standalone === true;
+    setIsInstalled(standalone);
+    setIsIos(/iphone|ipad|ipod/i.test(window.navigator?.userAgent || ''));
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+    };
+    const handleInstalled = () => {
+      setIsInstalled(true);
+      setInstallPromptEvent(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  const handleInstallPress = async () => {
+    if (!installPromptEvent) return;
+    installPromptEvent.prompt();
+    await installPromptEvent.userChoice;
+    // The browser only lets a captured prompt be used once, whichever way the
+    // user answered — clear it either way rather than leaving a dead button.
+    setInstallPromptEvent(null);
+  };
+
+  const showInstallButton = Platform.OS === 'web' && !isInstalled && Boolean(installPromptEvent);
+  const showIosInstallHint = Platform.OS === 'web' && !isInstalled && isIos && !installPromptEvent;
 
   const validate = () => {
     let isValid = true;
@@ -85,6 +134,30 @@ const LoginScreen = ({ navigation }) => {
             <Text style={styles.title}>Bright Star</Text>
             <Text style={styles.subtitle}>Coaching Manager</Text>
           </View>
+
+          {showInstallButton ? (
+            <Card style={styles.installCard}>
+              <Text style={styles.installTitle}>📲 Get the app</Text>
+              <Text style={styles.installSubtitle}>
+                Install once and open it straight from your home screen — no
+                browser, no typing the address again.
+              </Text>
+              <Button
+                title="Install App"
+                type="outline"
+                onPress={handleInstallPress}
+                style={styles.installBtn}
+              />
+            </Card>
+          ) : showIosInstallHint ? (
+            <Card style={styles.installCard}>
+              <Text style={styles.installTitle}>📲 Get the app</Text>
+              <Text style={styles.installSubtitle}>
+                Tap the Share button below, then "Add to Home Screen" — it'll
+                open like an app from then on, no browser needed.
+              </Text>
+            </Card>
+          ) : null}
 
           <Card style={styles.loginCard}>
             <Text style={styles.cardHeader}>Welcome Back</Text>
@@ -185,6 +258,28 @@ const styles = StyleSheet.create({
   loginCard: {
     paddingVertical: 24,
     paddingHorizontal: 20,
+  },
+  installCard: {
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  installTitle: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  installSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    marginTop: 4,
+    marginBottom: 12,
+    lineHeight: 17,
+  },
+  installBtn: {
+    marginTop: 0,
   },
   cardHeader: {
     color: COLORS.text,
