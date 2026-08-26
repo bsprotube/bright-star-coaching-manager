@@ -131,11 +131,14 @@ const StudyMaterialsScreen = ({ route, navigation }) => {
     }
     setCreatingFolder(true);
     try {
-      const res = await api.post('/study-materials/folders', {
-        name: newFolderName.trim(),
-        batchId,
-        parentFolderId: currentFolderId,
-      });
+      // Joi's optional objectId field accepts the key being absent, but not an
+      // explicit null — sending parentFolderId: null (root level, no folder
+      // selected) failed validation with "parentFolderId must be a string".
+      // Omitting the key entirely at the root is what the backend actually expects.
+      const body = { name: newFolderName.trim(), batchId };
+      if (currentFolderId) body.parentFolderId = currentFolderId;
+
+      const res = await api.post('/study-materials/folders', body);
       if (res.data.success) {
         setNewFolderModalVisible(false);
         setNewFolderName('');
@@ -184,6 +187,14 @@ const StudyMaterialsScreen = ({ route, navigation }) => {
   };
 
   const handlePickPdf = async () => {
+    // A file always belongs to a folder (StudyFile.folder is required — there's
+    // no "loose" file sitting at the batch root), so catch this before the file
+    // picker even opens rather than letting the upload fail after the admin has
+    // already chosen a PDF.
+    if (!currentFolderId) {
+      showMessage('Create a folder first', 'PDFs live inside a folder. Create one, open it, then upload.');
+      return;
+    }
     const result = await DocumentPicker.getDocumentAsync({
       type: 'application/pdf',
       copyToCacheDirectory: true,
