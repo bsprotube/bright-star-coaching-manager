@@ -23,7 +23,12 @@ const attendanceRecordSchema = new mongoose.Schema(
     },
     markedBy: {
       type: String,
-      enum: ['self', 'teacher', 'admin'],
+      // 'system' is the auto-absent-marking job (autoMarkAbsentees in
+      // attendanceController.js) — it was writing this value long before it was
+      // ever added here, which meant every automatic absence had been silently
+      // failing Mongoose validation and never saving, since the job the whole
+      // day the code was created.
+      enum: ['self', 'teacher', 'admin', 'system'],
       required: true,
     },
     codeUsed: {
