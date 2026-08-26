@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -106,6 +106,26 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
     const d = new Date(`${dateStr}T00:00:00.000Z`);
     return DAY_LABELS[d.getUTCDay()];
   };
+
+  // A single month-wide "Total Present / Total Absent" told nothing useful — it
+  // couldn't say which day the class was actually thin, only that it was thin
+  // sometime this month. Per-day counts, aligned under each date column, answer
+  // the question that's actually being asked.
+  const dailyCounts = useMemo(() => {
+    if (!register) return [];
+    const daysInMonth = register.daysInMonth;
+    const counts = Array.from({ length: daysInMonth }, () => ({ present: 0, absent: 0 }));
+    register.rows.forEach((student) => {
+      student.days.forEach((day, idx) => {
+        // Mirrors the per-student Pres./Abs. columns already on this screen —
+        // those keep 'late' as its own bucket rather than folding it into
+        // Present, so this does too.
+        if (day.status === 'present') counts[idx].present += 1;
+        else if (day.status === 'absent') counts[idx].absent += 1;
+      });
+    });
+    return counts;
+  }, [register]);
 
   const getCellDisplay = (status, isClassDay) => {
     if (status === 'present') return { text: 'P', style: styles.cellPresent };
@@ -347,6 +367,34 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
                     </View>
                   </View>
                 ))}
+
+                {/* Daily Present / Daily Absent footer rows — aligned under the
+                    same date columns as the grid above, so "how many showed up
+                    on the 14th" is a glance, not a scroll-and-count. */}
+                <View style={[styles.dataRow, styles.dailyFooterRow]}>
+                  <View style={[styles.dataCell, { width: ROLL_COL_WIDTH }]} />
+                  <View style={[styles.dataCell, styles.nameCell, { width: NAME_COL_WIDTH }]}>
+                    <Text style={[styles.dailyFooterLabel, { color: COLORS.success }]}>Daily Present</Text>
+                  </View>
+                  {dailyCounts.map((c, idx) => (
+                    <View key={idx} style={[styles.dataCell, { width: CELL_WIDTH }]}>
+                      <Text style={[styles.cellText, { color: COLORS.success }]}>{c.present}</Text>
+                    </View>
+                  ))}
+                  <View style={[styles.dataCell, { width: SUMMARY_COL_WIDTH * 3 + FEE_COL_WIDTH * 2 }]} />
+                </View>
+                <View style={[styles.dataRow, styles.dailyFooterRow]}>
+                  <View style={[styles.dataCell, { width: ROLL_COL_WIDTH }]} />
+                  <View style={[styles.dataCell, styles.nameCell, { width: NAME_COL_WIDTH }]}>
+                    <Text style={[styles.dailyFooterLabel, { color: COLORS.error }]}>Daily Absent</Text>
+                  </View>
+                  {dailyCounts.map((c, idx) => (
+                    <View key={idx} style={[styles.dataCell, { width: CELL_WIDTH }]}>
+                      <Text style={[styles.cellText, { color: COLORS.error }]}>{c.absent}</Text>
+                    </View>
+                  ))}
+                  <View style={[styles.dataCell, { width: SUMMARY_COL_WIDTH * 3 + FEE_COL_WIDTH * 2 }]} />
+                </View>
               </View>
             </HScrollWrapper>
           </View>
@@ -356,14 +404,6 @@ const AttendanceRegisterScreen = ({ navigation, route }) => {
             <View style={styles.summaryCard}>
               <Text style={styles.summaryCardLabel}>Total Students</Text>
               <Text style={styles.summaryCardValue}>{register.totalStudents}</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>Total Present</Text>
-              <Text style={[styles.summaryCardValue, { color: COLORS.success }]}>{register.summary.totalPresent}</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>Total Absent</Text>
-              <Text style={[styles.summaryCardValue, { color: COLORS.error }]}>{register.summary.totalAbsent}</Text>
             </View>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryCardLabel}>Avg Attendance</Text>
@@ -663,6 +703,15 @@ const styles = StyleSheet.create({
   summaryText: {
     color: COLORS.text,
     fontSize: 11,
+    fontWeight: 'bold',
+  },
+  dailyFooterRow: {
+    backgroundColor: COLORS.surface,
+    borderTopWidth: 2,
+    borderTopColor: COLORS.surfaceLight,
+  },
+  dailyFooterLabel: {
+    fontSize: 10,
     fontWeight: 'bold',
   },
   // The month count stays, in smaller muted type under the amount: the rupee
