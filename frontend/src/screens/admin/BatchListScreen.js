@@ -206,6 +206,26 @@ const BatchListScreen = ({ navigation }) => {
       {item.description ? (
         <Text style={styles.descText}>{item.description}</Text>
       ) : null}
+      <View style={styles.feeSummaryRow}>
+        <View style={styles.feeSummaryBox}>
+          <Text style={styles.feeSummaryLabel}>COLLECTED</Text>
+          <Text style={[styles.feeSummaryValue, { color: COLORS.success }]}>
+            ₹{(item.totalCollected || 0).toLocaleString('en-IN')}
+          </Text>
+        </View>
+        <View style={styles.feeSummaryDivider} />
+        <View style={styles.feeSummaryBox}>
+          <Text style={styles.feeSummaryLabel}>PENDING</Text>
+          <Text
+            style={[
+              styles.feeSummaryValue,
+              { color: item.totalPending > 0 ? COLORS.error : COLORS.textMuted },
+            ]}
+          >
+            ₹{(item.totalPending || 0).toLocaleString('en-IN')}
+          </Text>
+        </View>
+      </View>
       <View style={styles.cardFooter}>
         <Text style={styles.feeText}>Default Fee: ₹{item.monthlyFeeDefault}</Text>
         <View style={styles.actionRow}>
@@ -446,6 +466,34 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.sm,
     marginTop: 8,
     lineHeight: 18,
+  },
+  feeSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  feeSummaryBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  feeSummaryDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: COLORS.background,
+  },
+  feeSummaryLabel: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    fontWeight: TYPOGRAPHY.weights.bold,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  feeSummaryValue: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: TYPOGRAPHY.weights.bold,
   },
   cardFooter: {
     flexDirection: 'row',

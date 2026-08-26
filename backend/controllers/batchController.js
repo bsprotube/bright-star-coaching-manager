@@ -1,5 +1,6 @@
 const Batch = require('../models/Batch');
 const StudentDetail = require('../models/StudentDetail');
+const FeeRecord = require('../models/FeeRecord');
 
 // Escapes regex special characters so a batch name like "Class (A)" is matched
 // literally instead of being interpreted as a regex pattern.
@@ -27,9 +28,52 @@ const getBatches = async (req, res, next) => {
       return map;
     }, {});
 
+    // Every fee invoice ever raised for a batch's students, rolled up into two
+    // numbers: what's actually been collected (lifetime, not just this month —
+    // amountPaid on every cycle), and what's still outstanding right now
+    // (only pending/partial invoices, and only their remaining balance, so a
+    // part-paid cycle doesn't get double-counted). $lookup joins through
+    // StudentDetail because FeeRecord only knows the student, not their batch.
+    const feeTotals = await FeeRecord.aggregate([
+      {
+        $lookup: {
+          from: 'studentdetails',
+          localField: 'studentId',
+          foreignField: 'userId',
+          as: 'detail',
+        },
+      },
+      { $unwind: '$detail' },
+      {
+        $group: {
+          _id: '$detail.batchId',
+          totalCollected: { $sum: '$amountPaid' },
+          totalPending: {
+            $sum: {
+              $cond: [
+                { $in: ['$status', ['pending', 'partial']] },
+                { $subtract: ['$amountDue', '$amountPaid'] },
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const feeMap = feeTotals.reduce((map, item) => {
+      map[item._id.toString()] = {
+        totalCollected: item.totalCollected,
+        totalPending: item.totalPending,
+      };
+      return map;
+    }, {});
+
     const batchesWithCounts = batches.map(batch => ({
       ...batch.toObject(),
       studentCount: countMap[batch._id.toString()] || 0,
+      totalCollected: feeMap[batch._id.toString()]?.totalCollected || 0,
+      totalPending: feeMap[batch._id.toString()]?.totalPending || 0,
     }));
 
     res.status(200).json({
