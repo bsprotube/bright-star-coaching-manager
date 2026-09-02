@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import { AuthContext } from '../../context/AuthContext';
@@ -114,9 +115,19 @@ const StudentDashboard = () => {
     loadStudentState();
   }, []);
 
+  // RN's Alert.alert() is a silent no-op on react-native-web — the check-in
+  // button was calling it directly, so on the web/PWA build (what every
+  // student actually uses) a wrong code, an expired one, or even a
+  // successful check-in produced no feedback at all. The tap "did nothing"
+  // whether it had actually failed or quietly succeeded.
+  const showMessage = (title, msg) => {
+    if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
+    else Alert.alert(title, msg);
+  };
+
   const handleCheckInSubmit = async () => {
     if (!codeInput || codeInput.length < 2) {
-      Alert.alert('Required', 'Please enter the 2-digit attendance code');
+      showMessage('Required', 'Please enter the 2-digit attendance code');
       return;
     }
 
@@ -128,7 +139,7 @@ const StudentDashboard = () => {
       });
 
       if (res.data.success) {
-        Alert.alert('Success', 'Checked in successfully!');
+        showMessage('Success', 'Checked in successfully!');
         setCheckedInToday(true);
         setTodayRecord(res.data.data);
         loadStudentState(); // reload details
@@ -136,7 +147,7 @@ const StudentDashboard = () => {
     } catch (error) {
       console.error(error);
       const msg = error.response?.data?.message || 'Check-in failed. Please verify the code.';
-      Alert.alert('Check-In Failed', msg);
+      showMessage('Check-In Failed', msg);
     } finally {
       setSubmitting(false);
     }
