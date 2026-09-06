@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
 import { AuthContext } from '../../context/AuthContext';
 import Header from '../../components/Header';
@@ -39,6 +40,32 @@ const AttendanceCheckInScreen = ({ navigation }) => {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Last month and this month, each as { present, absent, total, percentage }.
+  // "Late" counts as attended here — this card only distinguishes two things
+  // (showed up or didn't), matching the two-way split it actually displays,
+  // rather than adding a third bucket nothing on this screen shows.
+  const [lastMonthStats, setLastMonthStats] = useState(null);
+  const [thisMonthStats, setThisMonthStats] = useState(null);
+
+  // Stable for the component's lifetime — recomputing per render is harmless,
+  // but memoized since loadState also needs the identical keys to bucket by.
+  const thisMonthKey = useMemo(() => new Date().toISOString().substring(0, 7), []);
+  const lastMonthKey = useMemo(() => {
+    const now = new Date();
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+      .toISOString()
+      .substring(0, 7);
+  }, []);
+
+  const summariseMonth = (records, monthKey) => {
+    const inMonth = records.filter((r) => r.date.startsWith(monthKey));
+    const present = inMonth.filter((r) => r.status === 'present' || r.status === 'late').length;
+    const absent = inMonth.filter((r) => r.status === 'absent').length;
+    const total = present + absent;
+    const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { present, absent, total, percentage };
+  };
+
   const loadState = async () => {
     try {
       const profileRes = await api.get(`/students/${user.id}`);
@@ -56,8 +83,9 @@ const AttendanceCheckInScreen = ({ navigation }) => {
 
       const historyRes = await api.get(`/attendance/history/student/${user.id}`);
       if (historyRes.data.success) {
+        const records = historyRes.data.data;
         const todayStr = new Date().toISOString().substring(0, 10);
-        const match = historyRes.data.data.find((r) => r.date === todayStr);
+        const match = records.find((r) => r.date === todayStr);
         if (match) {
           setCheckedInToday(true);
           setTodayRecord(match);
@@ -65,6 +93,9 @@ const AttendanceCheckInScreen = ({ navigation }) => {
           setCheckedInToday(false);
           setTodayRecord(null);
         }
+
+        setThisMonthStats(summariseMonth(records, thisMonthKey));
+        setLastMonthStats(summariseMonth(records, lastMonthKey));
       }
     } catch (e) {
       console.error(e);
@@ -89,6 +120,91 @@ const AttendanceCheckInScreen = ({ navigation }) => {
   const showMessage = (title, msg) => {
     if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
     else Alert.alert(title, msg);
+  };
+
+  const getMonthMeta = (monthKey) => {
+    const [year, m] = monthKey.split('-').map(Number);
+    const d = new Date(Date.UTC(year, m - 1, 1));
+    return {
+      abbr: d.toLocaleString('default', { month: 'short', timeZone: 'UTC' }).toUpperCase(),
+      full: d.toLocaleString('default', { month: 'long', timeZone: 'UTC' }),
+      year,
+    };
+  };
+
+  // Renders one of the two "Last Month" / "This Month" summary cards. A plain
+  // bordered circle stands in for the percentage ring — the app doesn't pull in
+  // a charting library anywhere else (AttendanceHistoryScreen does the same
+  // thing for its own presence circle), so this doesn't introduce one just for
+  // an animated arc.
+  const renderMonthCard = (title, monthKey, stats) => {
+    if (!stats) return null;
+    const meta = getMonthMeta(monthKey);
+    return (
+      <Card style={styles.monthCard}>
+        <View style={styles.monthCardHeader}>
+          <View style={styles.calendarBadge}>
+            <Text style={styles.calendarBadgeMonth}>{meta.abbr}</Text>
+            <Text style={styles.calendarBadgeYear}>{meta.year}</Text>
+          </View>
+          <View style={styles.monthCardTitleCol}>
+            <Text style={styles.monthCardTitle}>{title}</Text>
+            <Text style={styles.monthCardSubtitle}>{meta.full} {meta.year}</Text>
+          </View>
+          <View style={styles.totalClassesPill}>
+            <Text style={styles.totalClassesLabel}>Total Classes</Text>
+            <Text style={styles.totalClassesValue}>{stats.total}</Text>
+          </View>
+        </View>
+
+        <View style={styles.monthCardStatsRow}>
+          <View style={[styles.statCol, styles.statColBordered]}>
+            <View style={styles.statIconRow}>
+              <View style={[styles.statIconCircle, { backgroundColor: COLORS.success }]}>
+                <Ionicons name="checkmark" size={13} color="#fff" />
+              </View>
+              <Text style={[styles.statNumber, { color: COLORS.success }]}>{stats.present}</Text>
+            </View>
+            <Text style={styles.statLabel}>Present</Text>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${stats.percentage}%`, backgroundColor: COLORS.success },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressPct, { color: COLORS.success }]}>{stats.percentage}%</Text>
+          </View>
+
+          <View style={[styles.statCol, styles.statColBordered]}>
+            <View style={styles.statIconRow}>
+              <View style={[styles.statIconCircle, { backgroundColor: COLORS.error }]}>
+                <Ionicons name="close" size={13} color="#fff" />
+              </View>
+              <Text style={[styles.statNumber, { color: COLORS.error }]}>{stats.absent}</Text>
+            </View>
+            <Text style={styles.statLabel}>Absent</Text>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${100 - stats.percentage}%`, backgroundColor: COLORS.error },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressPct, { color: COLORS.error }]}>{100 - stats.percentage}%</Text>
+          </View>
+
+          <View style={styles.statCol}>
+            <View style={styles.ring}>
+              <Text style={styles.ringPct}>{stats.percentage}%</Text>
+            </View>
+            <Text style={styles.ringLabel}>Attendance</Text>
+          </View>
+        </View>
+      </Card>
+    );
   };
 
   const handleCheckInSubmit = async () => {
@@ -184,6 +300,9 @@ const AttendanceCheckInScreen = ({ navigation }) => {
               />
             </Card>
           )}
+
+          {renderMonthCard('Last Month Attendance', lastMonthKey, lastMonthStats)}
+          {renderMonthCard('This Month Attendance', thisMonthKey, thisMonthStats)}
 
           <Card style={styles.infoCard}>
             <Text style={styles.infoTitle}>💡 Important Instructions</Text>
@@ -283,6 +402,137 @@ const styles = StyleSheet.create({
   refreshBtn: {
     marginTop: 20,
     width: '60%',
+  },
+  monthCard: {
+    marginTop: 16,
+  },
+  monthCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  calendarBadgeMonth: {
+    backgroundColor: COLORS.error,
+    color: COLORS.text,
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    paddingVertical: 3,
+  },
+  calendarBadgeYear: {
+    flex: 1,
+    backgroundColor: COLORS.text,
+    color: COLORS.background,
+    fontSize: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  monthCardTitleCol: {
+    flex: 1,
+  },
+  monthCardTitle: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.bold,
+  },
+  monthCardSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  totalClassesPill: {
+    borderWidth: 1,
+    borderColor: COLORS.surfaceLight,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  totalClassesLabel: {
+    color: COLORS.textMuted,
+    fontSize: 8,
+  },
+  totalClassesValue: {
+    color: COLORS.text,
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: 'bold',
+  },
+  monthCardStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statColBordered: {
+    borderRightWidth: 1,
+    borderRightColor: COLORS.surfaceLight,
+  },
+  statIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statIconCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  statNumber: {
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  progressTrack: {
+    width: '80%',
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: COLORS.surfaceLight,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressPct: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  ring: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 4,
+    borderColor: COLORS.success,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringPct: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  ringLabel: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    marginTop: 6,
   },
   infoCard: {
     marginTop: 20,
