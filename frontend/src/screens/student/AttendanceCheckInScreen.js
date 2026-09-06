@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  TouchableOpacity,
   Platform,
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../styles/theme';
@@ -20,75 +19,45 @@ import Button from '../../components/Button';
 import api from '../../services/api';
 import useWebScroll from '../../hooks/useWebScroll';
 
-const StudentDashboard = () => {
+// The actual check-in flow, split out from the Home menu so Home can be a
+// launcher rather than double as the check-in form. A student who's already
+// checked in for the day, or whose teacher hasn't opened a session yet,
+// lands on this same screen either way — only the middle card changes.
+const AttendanceCheckInScreen = ({ navigation }) => {
   const { screenStyle, scrollStyle, webRefreshControl } = useWebScroll();
   const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Student core metadata
+
   const [studentDetails, setStudentDetails] = useState(null);
-  
-  // Attendance state
+
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [todayRecord, setTodayRecord] = useState(null);
   const [activeCodeExists, setActiveCodeExists] = useState(false);
-  const [activeCodeExpiry, setActiveCodeExpiry] = useState(null);
   const [codeInput, setCodeInput] = useState('');
-  
+
   const [submitting, setSubmitting] = useState(false);
 
-  // Outstanding fees, summarised for the banner at the top of this screen. Students
-  // rarely open the Fees tab on their own, so arrears used to go unnoticed until
-  // someone chased them in person; putting the figure on the screen they do open
-  // every day is the whole point of showing it here.
-  const [feeSummary, setFeeSummary] = useState(null);
-
-  const loadStudentState = async () => {
+  const loadState = async () => {
     try {
-      // 1. Fetch student detailed profile
       const profileRes = await api.get(`/students/${user.id}`);
       if (profileRes.data.success) {
         const profileData = profileRes.data.data.profile;
         setStudentDetails(profileData);
-        
-        // 2. Fetch active code check for batch
+
         if (profileData.batchId) {
           const codeRes = await api.get(`/attendance/code/active/${profileData.batchId}`);
           if (codeRes.data.success) {
             setActiveCodeExists(codeRes.data.active);
-            setActiveCodeExpiry(codeRes.data.expiresAt ? new Date(codeRes.data.expiresAt) : null);
           }
         }
       }
 
-      // 3. Summarise anything still owed. The oldest unpaid cycle is the one worth
-      // naming: it's the date the student is already past, not the next one coming.
-      const feeRes = await api.get(`/fees/student/${user.id}`);
-      if (feeRes.data.success) {
-        const unpaid = (feeRes.data.data || []).filter(
-          (r) => r.status === 'pending' || r.status === 'partial'
-        );
-        if (unpaid.length > 0) {
-          const totalDue = unpaid.reduce((sum, r) => sum + (r.amountDue - r.amountPaid), 0);
-          const oldest = unpaid.reduce((a, b) => (a.billingMonth <= b.billingMonth ? a : b));
-          setFeeSummary({
-            totalDue,
-            monthsPending: unpaid.length,
-            oldestDueDate: oldest.dueDate,
-            anyPartial: unpaid.some((r) => r.status === 'partial'),
-          });
-        } else {
-          setFeeSummary(null);
-        }
-      }
-
-      // 4. Fetch check-in history to verify if checked in today
       const historyRes = await api.get(`/attendance/history/student/${user.id}`);
       if (historyRes.data.success) {
         const todayStr = new Date().toISOString().substring(0, 10);
-        const match = historyRes.data.data.find(r => r.date === todayStr);
+        const match = historyRes.data.data.find((r) => r.date === todayStr);
         if (match) {
           setCheckedInToday(true);
           setTodayRecord(match);
@@ -106,20 +75,17 @@ const StudentDashboard = () => {
   };
 
   useEffect(() => {
-    loadStudentState();
+    loadState();
   }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setCodeInput('');
-    loadStudentState();
+    loadState();
   }, []);
 
-  // RN's Alert.alert() is a silent no-op on react-native-web — the check-in
-  // button was calling it directly, so on the web/PWA build (what every
-  // student actually uses) a wrong code, an expired one, or even a
-  // successful check-in produced no feedback at all. The tap "did nothing"
-  // whether it had actually failed or quietly succeeded.
+  // RN's Alert.alert() is a silent no-op on react-native-web, which is the
+  // build every student actually uses.
   const showMessage = (title, msg) => {
     if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
     else Alert.alert(title, msg);
@@ -142,7 +108,7 @@ const StudentDashboard = () => {
         showMessage('Success', 'Checked in successfully!');
         setCheckedInToday(true);
         setTodayRecord(res.data.data);
-        loadStudentState(); // reload details
+        loadState();
       }
     } catch (error) {
       console.error(error);
@@ -156,7 +122,11 @@ const StudentDashboard = () => {
   return (
     <SafeAreaView style={[styles.safeArea, screenStyle]}>
       <View>
-        <Header title="Class Check-In" />
+        <Header
+          title="Attendance Check-In"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+        />
       </View>
 
       {loading ? (
@@ -171,57 +141,6 @@ const StudentDashboard = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
           )}
         >
-          {/* Outstanding fees — deliberately the first thing on the screen, and
-              deliberately loud. Tapping anywhere on it opens the full ledger.
-              There is no online payment in this app: fees are handed over at the
-              centre, so the banner says where to pay rather than offering a
-              button that couldn't do anything. */}
-          {feeSummary ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.feeBanner}
-              onPress={() => navigation.navigate('Fees')}
-            >
-              <View style={styles.feeBannerTop}>
-                <View style={styles.feeBannerIcon}>
-                  <Text style={styles.feeBannerIconText}>💰</Text>
-                </View>
-                <View style={styles.feeBannerTextCol}>
-                  <Text style={styles.feeBannerLabel}>FEES DUE</Text>
-                  <Text style={styles.feeBannerAmount}>
-                    ₹{feeSummary.totalDue.toLocaleString('en-IN')}
-                  </Text>
-                  <Text style={styles.feeBannerMeta}>
-                    {feeSummary.monthsPending} month
-                    {feeSummary.monthsPending > 1 ? 's' : ''} pending
-                    {feeSummary.oldestDueDate
-                      ? ` · since ${new Date(feeSummary.oldestDueDate).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}`
-                      : ''}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.feeBannerFooter}>
-                <Text style={styles.feeBannerFooterText}>
-                  Please pay at the coaching centre
-                </Text>
-                <Text style={styles.feeBannerLink}>View Details →</Text>
-              </View>
-            </TouchableOpacity>
-          ) : null}
-
-          {/* Roster detail info header */}
-          <View style={styles.greetingHeader}>
-            <Text style={styles.greetText}>Hello, {user?.name}</Text>
-            <Text style={styles.subtext}>Roll Number: {studentDetails?.rollNumber}</Text>
-            <Text style={styles.subtext}>Classroom: {studentDetails?.batchName}</Text>
-          </View>
-
-          {/* Conditional Check-in Views */}
           {checkedInToday ? (
             <Card borderLeftColor={COLORS.success} style={styles.statusCard}>
               <Text style={styles.statusTitle}>Check-In Registered</Text>
@@ -256,7 +175,7 @@ const StudentDashboard = () => {
               <Text style={styles.noCodeSubtitle}>
                 Attendance check-in is not open yet. Ask your instructor for the daily verification code.
               </Text>
-              
+
               <Button
                 title="Refresh Page"
                 type="outline"
@@ -266,7 +185,6 @@ const StudentDashboard = () => {
             </Card>
           )}
 
-          {/* Guidelines */}
           <Card style={styles.infoCard}>
             <Text style={styles.infoTitle}>💡 Important Instructions</Text>
             <Text style={styles.infoBullet}>• You can only mark attendance once per day.</Text>
@@ -292,85 +210,6 @@ const styles = StyleSheet.create({
   container: {
     padding: SPACING.md,
     paddingBottom: 80,
-  },
-  // Sized to be the loudest thing on the screen: a tinted red slab with the figure
-  // set large enough to read at a glance, so an unpaid balance is impossible to
-  // scroll past on the way to the check-in box.
-  feeBanner: {
-    backgroundColor: COLORS.error + '1A',
-    borderWidth: 1.5,
-    borderColor: COLORS.error,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-  },
-  feeBannerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  feeBannerIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: COLORS.error + '2E',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  feeBannerIconText: {
-    fontSize: 24,
-  },
-  feeBannerTextCol: {
-    flex: 1,
-  },
-  feeBannerLabel: {
-    color: COLORS.error,
-    fontSize: TYPOGRAPHY.sizes.xs,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    letterSpacing: 1.2,
-  },
-  feeBannerAmount: {
-    color: COLORS.error,
-    fontSize: 36,
-    fontWeight: 'bold',
-    lineHeight: 44,
-  },
-  feeBannerMeta: {
-    color: COLORS.textMuted,
-    fontSize: TYPOGRAPHY.sizes.xs,
-  },
-  feeBannerFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.error + '33',
-  },
-  feeBannerFooterText: {
-    color: COLORS.textMuted,
-    fontSize: TYPOGRAPHY.sizes.xs,
-    flex: 1,
-  },
-  feeBannerLink: {
-    color: COLORS.error,
-    fontSize: TYPOGRAPHY.sizes.xs,
-    fontWeight: TYPOGRAPHY.weights.bold,
-    marginLeft: 10,
-  },
-  greetingHeader: {
-    marginBottom: 20,
-  },
-  greetText: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.xl,
-    fontWeight: TYPOGRAPHY.weights.bold,
-  },
-  subtext: {
-    color: COLORS.textMuted,
-    fontSize: TYPOGRAPHY.sizes.sm,
-    marginTop: 4,
   },
   statusCard: {
     alignItems: 'center',
@@ -464,4 +303,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default StudentDashboard;
+export default AttendanceCheckInScreen;
